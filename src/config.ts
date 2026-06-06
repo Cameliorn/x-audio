@@ -25,6 +25,7 @@ export interface MiniMaxTtsConfig {
   readonly subtitleType: 'sentence' | 'word';
   readonly extraRequestJson: Readonly<Record<string, unknown>>;
   readonly cacheEnabled: boolean;
+  readonly cacheMaxSizeMb: number;
   readonly maxTextLength: number;
   readonly requestTimeoutMs: number;
 }
@@ -51,6 +52,7 @@ export const DEFAULT_CONFIG: MiniMaxTtsConfig = {
   subtitleType: 'sentence',
   extraRequestJson: {},
   cacheEnabled: true,
+  cacheMaxSizeMb: 512,
   maxTextLength: 10000,
   requestTimeoutMs: 60000
 };
@@ -80,6 +82,7 @@ export function getMiniMaxConfig(): MiniMaxTtsConfig {
     subtitleType: readSubtitleType(settings.get<string>('subtitleType'), DEFAULT_CONFIG.subtitleType),
     extraRequestJson: readObject(settings.get<unknown>('extraRequestJson')),
     cacheEnabled: settings.get<boolean>('cacheEnabled', DEFAULT_CONFIG.cacheEnabled),
+    cacheMaxSizeMb: readNonNegativeNumber(settings, 'cacheMaxSizeMb', DEFAULT_CONFIG.cacheMaxSizeMb),
     maxTextLength: DEFAULT_CONFIG.maxTextLength,
     requestTimeoutMs: DEFAULT_CONFIG.requestTimeoutMs
   };
@@ -123,6 +126,11 @@ function readString(settings: vscode.WorkspaceConfiguration, key: string, fallba
 function readNumber(settings: vscode.WorkspaceConfiguration, key: string, fallback: number): number {
   const value = settings.get<number>(key, fallback);
   return Number.isFinite(value) ? value : fallback;
+}
+
+function readNonNegativeNumber(settings: vscode.WorkspaceConfiguration, key: string, fallback: number): number {
+  const value = readNumber(settings, key, fallback);
+  return value >= 0 ? value : fallback;
 }
 
 function readAudioFormat(value: string | undefined, fallback: AudioFormat): AudioFormat {

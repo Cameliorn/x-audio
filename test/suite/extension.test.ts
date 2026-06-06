@@ -3,8 +3,8 @@ import * as vscode from 'vscode';
 
 suite('Extension', () => {
   test('registers MiniMax TTS commands', async () => {
-    const extension = vscode.extensions.getExtension('projectaudioplugin.minimax-tts');
-    await extension?.activate();
+    const extension = findMiniMaxTtsExtension();
+    await extension.activate();
 
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('minimaxTts.speakSelection'));
@@ -18,10 +18,10 @@ suite('Extension', () => {
   });
 
   test('hides non-setup commands from the command palette', async () => {
-    const extension = vscode.extensions.getExtension('projectaudioplugin.minimax-tts');
-    await extension?.activate();
+    const extension = findMiniMaxTtsExtension();
+    await extension.activate();
 
-    const commandPaletteMenus = extension?.packageJSON.contributes.menus.commandPalette as Array<{
+    const commandPaletteMenus = extension.packageJSON.contributes.menus.commandPalette as Array<{
       readonly command: string;
       readonly when: string;
     }>;
@@ -46,3 +46,9 @@ suite('Extension', () => {
     ]);
   });
 });
+
+function findMiniMaxTtsExtension(): vscode.Extension<unknown> {
+  const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'minimax-tts');
+  assert.ok(extension, 'MiniMax TTS extension should be available in extension tests.');
+  return extension;
+}

@@ -1,8 +1,8 @@
+import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath } from '@vscode/test-electron';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath } from '@vscode/test-electron';
 
 const DEFAULT_TEST_VSCODE_VERSION = '1.100.0';
 const TEST_TIMEOUT_MS = 60000;

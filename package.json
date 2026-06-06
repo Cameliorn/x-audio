@@ -3,16 +3,17 @@
   "displayName": "MiniMax 文字转语音",
   "description": "使用 MiniMax 语音合成在 VS Code 中朗读选中文本、输入文本或 Agent 提供的文本。",
   "version": "0.0.9",
-  "publisher": "projectaudioplugin",
+  "publisher": "Cameliorn",
   "license": "MIT",
+  "author": "Cameliorn",
   "repository": {
     "type": "git",
-    "url": "https://github.com/projectaudioplugin/minimax-tts"
+    "url": "https://github.com/Cameliorn/projectaudioplugin"
   },
   "bugs": {
-    "url": "https://github.com/projectaudioplugin/minimax-tts/issues"
+    "url": "https://github.com/Cameliorn/projectaudioplugin/issues"
   },
-  "homepage": "https://github.com/projectaudioplugin/minimax-tts#readme",
+  "homepage": "https://github.com/Cameliorn/projectaudioplugin#readme",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -287,6 +288,12 @@
           "type": "boolean",
           "default": true,
           "description": "是否复用相同文本和相同参数生成过的音频缓存。"
+        },
+        "minimaxTts.cacheMaxSizeMb": {
+          "type": "number",
+          "default": 512,
+          "minimum": 0,
+          "description": "音频缓存最大体积（MB）。设为 0 可关闭大小清理。"
         }
       }
     },

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 interface RegisteredTest {
   readonly suiteName: string;
@@ -26,28 +27,32 @@ let currentSuiteName = 'Tests';
 };
 
 export async function run(): Promise<void> {
-  const testsRoot = __dirname;
-  for (const file of findTestFiles(testsRoot)) {
-    await import(file);
-  }
-
-  let failures = 0;
-  for (const registeredTest of tests) {
-    try {
-      await registeredTest.run();
-      console.log(`ok - ${registeredTest.suiteName}: ${registeredTest.testName}`);
-    } catch (error) {
-      failures += 1;
-      console.error(`not ok - ${registeredTest.suiteName}: ${registeredTest.testName}`);
-      console.error(error);
+  try {
+    const testsRoot = __dirname;
+    for (const file of findTestFiles(testsRoot)) {
+      await import(file);
     }
-  }
 
-  if (failures > 0) {
-    throw new Error(`${failures} tests failed.`);
-  }
+    let failures = 0;
+    for (const registeredTest of tests) {
+      try {
+        await registeredTest.run();
+        console.log(`ok - ${registeredTest.suiteName}: ${registeredTest.testName}`);
+      } catch (error) {
+        failures += 1;
+        console.error(`not ok - ${registeredTest.suiteName}: ${registeredTest.testName}`);
+        console.error(error);
+      }
+    }
 
-  writeTestMarker();
+    if (failures > 0) {
+      throw new Error(`${failures} tests failed.`);
+    }
+
+    writeTestMarker();
+  } finally {
+    await vscode.commands.executeCommand('workbench.action.closeWindow');
+  }
 }
 
 function findTestFiles(root: string): string[] {

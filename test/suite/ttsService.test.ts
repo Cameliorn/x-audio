@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import { DEFAULT_CONFIG, MiniMaxTtsConfig } from '../../src/config';
 import { UserVisibleError } from '../../src/errors';
 import { ApiKeyProvider } from '../../src/secretManager';
-import { TtsService } from '../../src/ttsService';
+import { TtsService, fileExists } from '../../src/ttsService';
 import { MiniMaxSynthesizer } from '../../src/types';
 
 suite('TtsService', () => {
@@ -56,6 +56,68 @@ suite('TtsService', () => {
     tokenSource.dispose();
 
     assert.equal(calls, 2);
+  });
+
+  test('shares concurrent synthesis for identical text and settings', async () => {
+    let calls = 0;
+    let releaseSynthesis!: () => void;
+    let notifyStarted!: () => void;
+    const synthesisStarted = new Promise<void>(resolve => {
+      notifyStarted = resolve;
+    });
+    const release = new Promise<void>(resolve => {
+      releaseSynthesis = resolve;
+    });
+    const service = createService({
+      client: {
+        async synthesizeSpeech() {
+          calls += 1;
+          notifyStarted();
+          await release;
+          return {
+            audio: Buffer.from('audio')
+          };
+        }
+      }
+    });
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const first = service.synthesizeToFile({ text: 'hello' }, tokenSource.token);
+    const second = service.synthesizeToFile({ text: 'hello' }, tokenSource.token);
+
+    await synthesisStarted;
+    releaseSynthesis();
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    tokenSource.dispose();
+
+    assert.equal(calls, 1);
+    assert.equal(firstResult.uri.toString(), secondResult.uri.toString());
+  });
+
+  test('removes older cached audio when the cache size limit is exceeded', async () => {
+    let calls = 0;
+    const service = createService({
+      config: {
+        ...DEFAULT_CONFIG,
+        cacheMaxSizeMb: 0.00001
+      },
+      client: {
+        async synthesizeSpeech() {
+          calls += 1;
+          return {
+            audio: Buffer.alloc(32, calls)
+          };
+        }
+      }
+    });
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const first = await service.synthesizeToFile({ text: 'first' }, tokenSource.token);
+    const second = await service.synthesizeToFile({ text: 'second' }, tokenSource.token);
+    tokenSource.dispose();
+
+    assert.equal(await fileExists(first.uri), false);
+    assert.equal(await fileExists(second.uri), true);
   });
 
   test('rejects text longer than the MiniMax sync limit', async () => {

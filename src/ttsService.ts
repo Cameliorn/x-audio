@@ -27,6 +27,8 @@ export interface TtsAudioFile {
 export type ConfigProvider = () => MiniMaxTtsConfig;
 
 export class TtsService {
+  private readonly inFlight = new Map<string, Promise<TtsAudioFile>>();
+
   public constructor(
     private readonly context: ExtensionStorageContext,
     private readonly apiKeyProvider: ApiKeyProvider,
@@ -58,6 +60,7 @@ export class TtsService {
     const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${config.format}`);
 
     if (config.cacheEnabled && await fileExists(fileUri)) {
+      await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
       return {
         uri: fileUri,
         format: config.format,
@@ -66,6 +69,31 @@ export class TtsService {
       };
     }
 
+    const inFlight = this.inFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const synthesis = this.synthesizeUncachedToFile(request, text, config, cacheRoot, fileUri, token);
+    this.inFlight.set(cacheKey, synthesis);
+
+    try {
+      return await synthesis;
+    } finally {
+      if (this.inFlight.get(cacheKey) === synthesis) {
+        this.inFlight.delete(cacheKey);
+      }
+    }
+  }
+
+  private async synthesizeUncachedToFile(
+    request: SpeakRequest,
+    text: string,
+    config: MiniMaxTtsConfig,
+    cacheRoot: vscode.Uri,
+    fileUri: vscode.Uri,
+    token: vscode.CancellationToken
+  ): Promise<TtsAudioFile> {
     const apiKey = await this.apiKeyProvider.requireApiKey();
     const result = await this.client.synthesizeSpeech({
       apiKey,
@@ -78,6 +106,7 @@ export class TtsService {
     }, token);
 
     await vscode.workspace.fs.writeFile(fileUri, result.audio);
+    await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
 
     return {
       uri: fileUri,
@@ -134,4 +163,66 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
   }
 }
 
-export { createCacheKey, fileExists };
+interface AudioCacheEntry {
+  readonly uri: vscode.Uri;
+  readonly size: number;
+  readonly mtime: number;
+}
+
+async function tryCleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepUri: vscode.Uri): Promise<void> {
+  try {
+    await cleanupAudioCache(cacheRoot, maxSizeMb, keepUri);
+  } catch {
+    return;
+  }
+}
+
+async function cleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepUri: vscode.Uri): Promise<void> {
+  const maxBytes = Math.floor(maxSizeMb * 1024 * 1024);
+  if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
+    return;
+  }
+
+  const entries = await vscode.workspace.fs.readDirectory(cacheRoot);
+  const audioEntries: AudioCacheEntry[] = [];
+  let totalBytes = 0;
+
+  for (const [name, type] of entries) {
+    if (type !== vscode.FileType.File || !/\.(?:mp3|wav|flac)$/i.test(name)) {
+      continue;
+    }
+
+    const uri = vscode.Uri.joinPath(cacheRoot, name);
+    const stat = await vscode.workspace.fs.stat(uri);
+    audioEntries.push({
+      uri,
+      size: stat.size,
+      mtime: stat.mtime
+    });
+    totalBytes += stat.size;
+  }
+
+  if (totalBytes <= maxBytes) {
+    return;
+  }
+
+  const keepUriString = keepUri.toString();
+  audioEntries.sort((a, b) => a.mtime - b.mtime);
+
+  for (const entry of audioEntries) {
+    if (totalBytes <= maxBytes) {
+      return;
+    }
+
+    if (entry.uri.toString() === keepUriString) {
+      continue;
+    }
+
+    await vscode.workspace.fs.delete(entry.uri, {
+      useTrash: false
+    });
+    totalBytes -= entry.size;
+  }
+}
+
+export { cleanupAudioCache, createCacheKey, fileExists };

@@ -1,5 +1,6 @@
-import { execFile, spawn } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
 import * as http from 'http';
 import type { AddressInfo } from 'net';
 import * as path from 'path';
@@ -57,25 +58,38 @@ export class AudioPlayerPanel {
   private server: http.Server | undefined;
   private serverUrl: string | undefined;
   private readonly routeToken = crypto.randomBytes(16).toString('hex');
-  private html = '';
-  private contentSecurityPolicy = '';
+  private readonly html: string;
+  private readonly contentSecurityPolicy: string;
+  private version = 0;
+  private audioFile: TtsAudioFile | undefined;
+  private browserChild: ChildProcess | undefined;
+  private browserProfilePath = '';
 
   public constructor(
     context: vscode.ExtensionContext,
     _playerRoot: vscode.Uri
   ) {
     this.browserProfileRoot = vscode.Uri.joinPath(context.globalStorageUri, 'browser-profile');
+    const page = getPlayerPage();
+    this.html = page.html;
+    this.contentSecurityPolicy = page.contentSecurityPolicy;
   }
 
   public async play(audioFile: TtsAudioFile, _text?: string): Promise<void> {
-    const audioBytes = await vscode.workspace.fs.readFile(audioFile.uri);
-    const audioSrc = createAudioDataUri(audioFile.format, audioBytes);
-    const page = getPlayerPage(audioSrc);
-    this.html = page.html;
-    this.contentSecurityPolicy = page.contentSecurityPolicy;
+    this.audioFile = audioFile;
+    this.version++;
     await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
     const url = await this.ensureServerUrl();
-    await openExternalUrl(`${url}?v=${Date.now()}`, this.browserProfileRoot.fsPath);
+
+    // 仅在浏览器进程已退出或从未启动时才启动新窗口
+    if (!this.browserChild || this.browserChild.exitCode !== null) {
+      await launchBrowserWindow(url, this.browserProfileRoot.fsPath, this.browserProfilePath,
+        (child, profilePath) => {
+          this.browserChild = child;
+          this.browserProfilePath = profilePath;
+        });
+    }
+    // 如果浏览器已在运行，页面会通过版本号轮询自动检测并刷新
   }
 
   public pause(): void {
@@ -90,6 +104,10 @@ export class AudioPlayerPanel {
     this.server?.close();
     this.server = undefined;
     this.serverUrl = undefined;
+    if (this.browserChild && this.browserChild.exitCode === null) {
+      this.browserChild.kill();
+    }
+    this.browserChild = undefined;
   }
 
   private async ensureServerUrl(): Promise<string> {
@@ -97,7 +115,14 @@ export class AudioPlayerPanel {
       return this.serverUrl;
     }
 
-    this.server = http.createServer((request, response) => this.handleRequest(request, response));
+    this.server = http.createServer((request, response) => {
+      void this.handleRequest(request, response).catch(() => {
+        if (!response.headersSent) {
+          response.writeHead(500);
+        }
+        response.end();
+      });
+    });
 
     const port = await new Promise<number>((resolve, reject) => {
       const onError = (error: Error): void => reject(error);
@@ -118,7 +143,7 @@ export class AudioPlayerPanel {
     return this.serverUrl;
   }
 
-  private handleRequest(request: http.IncomingMessage, response: http.ServerResponse): void {
+  private async handleRequest(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
     const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -126,6 +151,21 @@ export class AudioPlayerPanel {
         Allow: 'GET, HEAD'
       });
       response.end();
+      return;
+    }
+
+    // 版本号端点，供页面轮询检测更新
+    if (requestUrl.pathname === `/${this.routeToken}/version`) {
+      response.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      response.end(JSON.stringify({ version: this.version }));
+      return;
+    }
+
+    if (requestUrl.pathname === `/${this.routeToken}/audio`) {
+      await this.serveAudio(request, response);
       return;
     }
 
@@ -144,11 +184,61 @@ export class AudioPlayerPanel {
     });
     response.end(request.method === 'HEAD' ? undefined : this.html);
   }
+
+  private async serveAudio(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
+    const audioFile = this.audioFile;
+    if (!audioFile) {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+
+    const headers = {
+      'Content-Type': getAudioMime(audioFile.format),
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff'
+    };
+
+    if (audioFile.uri.scheme !== 'file') {
+      const audioBytes = await vscode.workspace.fs.readFile(audioFile.uri);
+      response.writeHead(200, {
+        ...headers,
+        'Content-Length': audioBytes.byteLength
+      });
+      response.end(request.method === 'HEAD' ? undefined : audioBytes);
+      return;
+    }
+
+    const stat = await fs.promises.stat(audioFile.uri.fsPath);
+    response.writeHead(200, {
+      ...headers,
+      'Content-Length': stat.size
+    });
+
+    if (request.method === 'HEAD') {
+      response.end();
+      return;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const stream = fs.createReadStream(audioFile.uri.fsPath);
+      stream.once('error', reject);
+      response.once('finish', resolve);
+      response.once('close', resolve);
+      stream.pipe(response);
+    });
+  }
 }
 
-async function openExternalUrl(url: string, browserProfileRoot: string): Promise<void> {
+async function launchBrowserWindow(
+  url: string,
+  browserProfileRoot: string,
+  existingProfilePath: string,
+  onLaunch: (child: ChildProcess, profilePath: string) => void
+): Promise<void> {
   if (process.platform === 'darwin') {
-    await openExternalUrlOnMac(url, browserProfileRoot);
+    await launchOnMac(url, browserProfileRoot, existingProfilePath, onLaunch);
     return;
   }
 
@@ -159,9 +249,16 @@ async function openExternalUrl(url: string, browserProfileRoot: string): Promise
   throw new Error('无法打开外部播放器页面。');
 }
 
-async function openExternalUrlOnMac(url: string, browserProfileRoot: string): Promise<void> {
+async function launchOnMac(
+  url: string,
+  browserProfileRoot: string,
+  existingProfilePath: string,
+  onLaunch: (child: ChildProcess, profilePath: string) => void
+): Promise<void> {
   for (const app of CHROMIUM_APPS) {
-    if (await tryLaunchChromiumApp(app, url, browserProfileRoot)) {
+    const result = await tryLaunchChromiumApp(app, url, browserProfileRoot, existingProfilePath);
+    if (result) {
+      onLaunch(result.child, result.profilePath);
       return;
     }
   }
@@ -192,13 +289,23 @@ async function tryOpen(args: readonly string[]): Promise<boolean> {
   }
 }
 
-async function tryLaunchChromiumApp(app: ChromiumApp, url: string, browserProfileRoot: string): Promise<boolean> {
+interface LaunchResult {
+  readonly child: ChildProcess;
+  readonly profilePath: string;
+}
+
+async function tryLaunchChromiumApp(
+  app: ChromiumApp,
+  url: string,
+  browserProfileRoot: string,
+  existingProfilePath: string
+): Promise<LaunchResult | undefined> {
   for (const executablePath of app.executablePaths) {
     if (!executablePath || !await fileExists(vscode.Uri.file(executablePath))) {
       continue;
     }
 
-    const profilePath = path.join(browserProfileRoot, app.name.replace(/\W+/g, '-').toLowerCase());
+    const profilePath = existingProfilePath || path.join(browserProfileRoot, app.name.replace(/\W+/g, '-').toLowerCase());
     await vscode.workspace.fs.createDirectory(vscode.Uri.file(profilePath));
 
     try {
@@ -214,17 +321,13 @@ async function tryLaunchChromiumApp(app: ChromiumApp, url: string, browserProfil
         stdio: 'ignore'
       });
       child.unref();
-      return true;
+      return { child, profilePath };
     } catch {
       // 继续尝试下一个浏览器
     }
   }
 
-  return false;
-}
-
-function createAudioDataUri(format: TtsAudioFile['format'], audioBytes: Uint8Array): string {
-  return `data:${getAudioMime(format)};base64,${Buffer.from(audioBytes).toString('base64')}`;
+  return undefined;
 }
 
 function getAudioMime(format: TtsAudioFile['format']): string {
@@ -244,12 +347,12 @@ interface PlayerPage {
   readonly contentSecurityPolicy: string;
 }
 
-function getPlayerPage(audioSrc: string): PlayerPage {
+function getPlayerPage(): PlayerPage {
   const nonce = crypto.randomBytes(16).toString('base64');
   const escapedNonce = escapeAttribute(nonce);
 
   return {
-    contentSecurityPolicy: `default-src 'none'; media-src data:; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`,
+    contentSecurityPolicy: `default-src 'none'; media-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`,
     html: `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -278,69 +381,19 @@ function getPlayerPage(audioSrc: string): PlayerPage {
     main {
       width: 100%;
       min-height: calc(100vh - 28px);
+      padding: 12px 0;
       display: grid;
       align-content: center;
-      gap: 10px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 14px;
-      font-weight: 600;
-      color: #24292f;
-    }
-
-    #status {
-      color: #6e7781;
-      font-size: 12px;
-      line-height: 1.4;
     }
 
     audio {
       width: 100%;
     }
-
-    .actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    button {
-      border: 0;
-      border-radius: 999px;
-      padding: 8px 14px;
-      color: #ffffff;
-      background: #0969da;
-      cursor: pointer;
-      font: inherit;
-      font-size: 13px;
-    }
-
-    button:hover {
-      background: #0550ae;
-    }
-
-    .secondary {
-      color: #24292f;
-      background: #f6f8fa;
-      border: 1px solid #d0d7de;
-    }
-
-    .secondary:hover {
-      background: #eef1f4;
-    }
   </style>
 </head>
 <body>
   <main>
-    <h1>MiniMax 播放器</h1>
-    <audio id="audio" src="${escapeAttribute(audioSrc)}" controls autoplay></audio>
-    <div class="actions">
-      <button id="playPause" type="button">播放 / 暂停</button>
-      <button id="stop" class="secondary" type="button">停止</button>
-    </div>
-    <div id="status">正在尝试自动播放…</div>
+    <audio id="audio" controls autoplay></audio>
   </main>
   <script nonce="${escapedNonce}">
     (function () {
@@ -349,49 +402,41 @@ function getPlayerPage(audioSrc: string): PlayerPage {
       } catch (_) {}
 
       const audio = document.getElementById('audio');
-      const playPause = document.getElementById('playPause');
-      const stop = document.getElementById('stop');
-      const status = document.getElementById('status');
-
-      function setStatus(text) {
-        status.textContent = text;
-      }
-
-      playPause.addEventListener('click', function () {
-        if (audio.paused) {
-          audio.play().then(function () {
-            setStatus('播放中');
-          }).catch(function () {
-            setStatus('浏览器阻止了播放，请使用音频控件播放。');
-          });
-        } else {
-          audio.pause();
-          setStatus('已暂停');
-        }
-      });
-
-      stop.addEventListener('click', function () {
-        audio.pause();
-        audio.currentTime = 0;
-        setStatus('已停止');
-      });
-
-      audio.addEventListener('play', function () { setStatus('播放中'); });
-      audio.addEventListener('pause', function () { setStatus('已暂停'); });
-      audio.addEventListener('ended', function () { setStatus('播放完成'); });
-      audio.addEventListener('error', function () { setStatus('播放失败，请重新生成语音。'); });
+      var currentVersion = 0;
+      var versionUrl = window.location.pathname + '/version';
 
       function startPlayback() {
-        audio.play().then(function () {
-          setStatus('播放中');
-        }).catch(function () {
-          setStatus('浏览器阻止了自动播放，请点击播放。');
-        });
+        audio.play().catch(function () {});
+      }
+
+      function playVersion(version) {
+        if (!version || version === currentVersion) {
+          return;
+        }
+
+        currentVersion = version;
+        audio.src = window.location.pathname + '/audio?version=' + encodeURIComponent(String(version));
+        audio.load();
+        startPlayback();
       }
 
       startPlayback();
       window.addEventListener('load', startPlayback);
       setTimeout(startPlayback, 150);
+
+      (function pollVersion() {
+        fetch(versionUrl)
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (typeof data.version === 'number') {
+              playVersion(data.version);
+            }
+          })
+          .catch(function () {})
+          .finally(function () {
+            setTimeout(pollVersion, 1000);
+          });
+      })();
     })();
   </script>
 </body>
