@@ -1,9 +1,10 @@
 {
   "name": "minimax-tts",
-  "displayName": "MiniMax 文字转语音",
-  "description": "使用 MiniMax 语音合成在 VS Code 中朗读选中文本、输入文本或 Agent 提供的文本。",
-  "version": "0.0.9",
+  "displayName": "MiniMax TTS",
+  "description": "%minimaxTts.description%",
+  "version": "0.1.1",
   "publisher": "Cameliorn",
+  "icon": "icon.png",
   "license": "MIT",
   "author": "Cameliorn",
   "repository": {
@@ -45,32 +46,32 @@
     "commands": [
       {
         "command": "minimaxTts.speakSelection",
-        "title": "朗读选中文本",
-        "category": "MiniMax 文字转语音",
+        "title": "%minimaxTts.commands.speakSelection.title%",
+        "category": "%minimaxTts.commands.category%",
         "icon": "$(unmute)"
       },
       {
         "command": "minimaxTts.speakInput",
-        "title": "朗读输入文本",
-        "category": "MiniMax 文字转语音",
+        "title": "%minimaxTts.commands.speakInput.title%",
+        "category": "%minimaxTts.commands.category%",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "minimaxTts.setApiKey",
-        "title": "设置密钥",
-        "category": "MiniMax 文字转语音",
+        "title": "%minimaxTts.commands.setApiKey.title%",
+        "category": "%minimaxTts.commands.category%",
         "icon": "$(key)"
       },
       {
         "command": "minimaxTts.pause",
-        "title": "暂停 / 恢复播放",
-        "category": "MiniMax 文字转语音",
+        "title": "%minimaxTts.commands.pause.title%",
+        "category": "%minimaxTts.commands.category%",
         "icon": "$(debug-pause)"
       },
       {
         "command": "minimaxTts.stop",
-        "title": "停止播放",
-        "category": "MiniMax 文字转语音",
+        "title": "%minimaxTts.commands.stop.title%",
+        "category": "%minimaxTts.commands.category%",
         "icon": "$(debug-stop)"
       }
     ],
@@ -102,13 +103,13 @@
       ]
     },
     "configuration": {
-      "title": "MiniMax 文字转语音",
+      "title": "%minimaxTts.configuration.title%",
       "properties": {
         "minimaxTts.apiHost": {
           "type": "string",
           "default": "https://api.minimax.io",
           "scope": "application",
-          "description": "MiniMax API 地址。必须使用 HTTPS；默认使用全球站 https://api.minimax.io。"
+          "description": "%minimaxTts.configuration.properties.apiHost.description%"
         },
         "minimaxTts.model": {
           "type": "string",
@@ -123,12 +124,12 @@
             "speech-01-turbo"
           ],
           "default": "speech-2.8-turbo",
-          "description": "MiniMax 语音合成模型。HD 通常质量更高，Turbo 通常速度更快。"
+          "description": "%minimaxTts.configuration.properties.model.description%"
         },
         "minimaxTts.voiceId": {
           "type": "string",
           "default": "English_expressive_narrator",
-          "description": "默认音色 ID。可以填写 MiniMax 内置音色、克隆音色或账号可用的音色 ID。"
+          "description": "%minimaxTts.configuration.properties.voiceId.description%"
         },
         "minimaxTts.format": {
           "type": "string",
@@ -138,19 +139,19 @@
             "flac"
           ],
           "default": "mp3",
-          "description": "生成音频格式。HTTP 非流式支持 mp3、wav、flac。"
+          "description": "%minimaxTts.configuration.properties.format.description%"
         },
         "minimaxTts.sampleRate": {
           "type": "number",
           "default": 32000,
           "minimum": 8000,
-          "description": "音频采样率。"
+          "description": "%minimaxTts.configuration.properties.sampleRate.description%"
         },
         "minimaxTts.bitrate": {
           "type": "number",
           "default": 128000,
           "minimum": 16000,
-          "description": "音频码率。"
+          "description": "%minimaxTts.configuration.properties.bitrate.description%"
         },
         "minimaxTts.channel": {
           "type": "number",
@@ -159,28 +160,28 @@
             2
           ],
           "default": 1,
-          "description": "音频声道数。1 为单声道，2 为双声道。"
+          "description": "%minimaxTts.configuration.properties.channel.description%"
         },
         "minimaxTts.speed": {
           "type": "number",
           "default": 1,
           "minimum": 0.5,
           "maximum": 2,
-          "description": "语速。"
+          "description": "%minimaxTts.configuration.properties.speed.description%"
         },
         "minimaxTts.vol": {
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 10,
-          "description": "音量。"
+          "description": "%minimaxTts.configuration.properties.vol.description%"
         },
         "minimaxTts.pitch": {
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "音高。"
+          "description": "%minimaxTts.configuration.properties.pitch.description%"
         },
         "minimaxTts.languageBoost": {
           "type": "string",
@@ -228,7 +229,7 @@
             "Afrikaans"
           ],
           "default": "auto",
-          "description": "语言增强。未知语言建议使用 auto。"
+          "description": "%minimaxTts.configuration.properties.languageBoost.description%"
         },
         "minimaxTts.pronunciationTone": {
           "type": "array",
@@ -236,39 +237,39 @@
           "items": {
             "type": "string"
           },
-          "description": "发音词典 tone 数组。例如 Omg/Oh my god。为空时不发送 pronunciation_dict。"
+          "description": "%minimaxTts.configuration.properties.pronunciationTone.description%"
         },
         "minimaxTts.voiceModifyEnabled": {
           "type": "boolean",
           "default": false,
-          "description": "是否启用 voice_modify 变声/音效参数。"
+          "description": "%minimaxTts.configuration.properties.voiceModifyEnabled.description%"
         },
         "minimaxTts.voiceModifyPitch": {
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "voice_modify.pitch，变声音高。仅在启用 voice_modify 时发送。"
+          "description": "%minimaxTts.configuration.properties.voiceModifyPitch.description%"
         },
         "minimaxTts.voiceModifyIntensity": {
           "type": "number",
           "default": 0,
-          "description": "voice_modify.intensity，变声强度。仅在启用 voice_modify 时发送。"
+          "description": "%minimaxTts.configuration.properties.voiceModifyIntensity.description%"
         },
         "minimaxTts.voiceModifyTimbre": {
           "type": "number",
           "default": 0,
-          "description": "voice_modify.timbre，音色变化。仅在启用 voice_modify 时发送。"
+          "description": "%minimaxTts.configuration.properties.voiceModifyTimbre.description%"
         },
         "minimaxTts.voiceModifySoundEffects": {
           "type": "string",
           "default": "",
-          "description": "voice_modify.sound_effects，音效名称。例如 spacious_echo。留空则不发送 sound_effects。"
+          "description": "%minimaxTts.configuration.properties.voiceModifySoundEffects.description%"
         },
         "minimaxTts.subtitleEnable": {
           "type": "boolean",
           "default": false,
-          "description": "是否请求字幕时间戳信息。当前插件主要用于播放音频，不显示字幕，但会把该参数发送给 MiniMax。"
+          "description": "%minimaxTts.configuration.properties.subtitleEnable.description%"
         },
         "minimaxTts.subtitleType": {
           "type": "string",
@@ -277,23 +278,23 @@
             "word"
           ],
           "default": "sentence",
-          "description": "字幕粒度。HTTP 非流式建议使用 sentence 或 word。"
+          "description": "%minimaxTts.configuration.properties.subtitleType.description%"
         },
         "minimaxTts.extraRequestJson": {
           "type": "object",
           "default": {},
-          "description": "高级 MiniMax T2A 请求参数。可放入官方新增字段或未单独暴露的字段，例如 timbre_weights。插件会保留播放所需的 model、text、stream、output_format、voice_setting、audio_setting 等核心字段。"
+          "description": "%minimaxTts.configuration.properties.extraRequestJson.description%"
         },
         "minimaxTts.cacheEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "是否复用相同文本和相同参数生成过的音频缓存。"
+          "description": "%minimaxTts.configuration.properties.cacheEnabled.description%"
         },
         "minimaxTts.cacheMaxSizeMb": {
           "type": "number",
           "default": 512,
           "minimum": 0,
-          "description": "音频缓存最大体积（MB）。设为 0 可关闭大小清理。"
+          "description": "%minimaxTts.configuration.properties.cacheMaxSizeMb.description%"
         }
       }
     },
@@ -306,9 +307,9 @@
           "audio"
         ],
         "toolReferenceName": "speakText",
-        "displayName": "朗读文本",
-        "modelDescription": "使用 MiniMax 语音合成将提供的文本转换为语音并在 VS Code 中播放。仅当用户明确要求朗读、播放、读出、旁白或文字转语音时使用。本工具会消耗 MiniMax 额度或账户余额，并会在用户编辑器中播放声音；不要用于普通解释或摘要。",
-        "userDescription": "使用 MiniMax 语音合成朗读文本。",
+        "displayName": "%minimaxTts.languageModelTools.speakText.displayName%",
+        "modelDescription": "%minimaxTts.languageModelTools.speakText.modelDescription%",
+        "userDescription": "%minimaxTts.languageModelTools.speakText.userDescription%",
         "canBeReferencedInPrompt": true,
         "icon": "$(unmute)",
         "inputSchema": {
@@ -316,15 +317,15 @@
           "properties": {
             "text": {
               "type": "string",
-              "description": "要转换为语音并播放的文本。"
+              "description": "%minimaxTts.languageModelTools.speakText.inputSchema.text.description%"
             },
             "voice_id": {
               "type": "string",
-              "description": "可选的 MiniMax 音色 ID。"
+              "description": "%minimaxTts.languageModelTools.speakText.inputSchema.voice_id.description%"
             },
             "model": {
               "type": "string",
-              "description": "可选的 MiniMax 语音模型。"
+              "description": "%minimaxTts.languageModelTools.speakText.inputSchema.model.description%"
             }
           },
           "required": [
