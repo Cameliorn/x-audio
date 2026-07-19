@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 export class UserVisibleError extends Error {
   public constructor(message: string) {
     super(message);
@@ -7,7 +9,7 @@ export class UserVisibleError extends Error {
 
 export class MissingApiKeyError extends UserVisibleError {
   public constructor() {
-    super('尚未设置 MiniMax 密钥。请先运行“MiniMax 文字转语音：设置密钥”。');
+    super(t('errors.missingApiKey'));
     this.name = 'MissingApiKeyError';
   }
 }
@@ -32,5 +34,5 @@ export function getErrorMessage(error: unknown): string {
     return error;
   }
 
-  return '发生未知的 MiniMax 文字转语音错误。';
+  return t('errors.unknown');
 }

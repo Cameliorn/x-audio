@@ -3,6 +3,7 @@
     "minimaxTts.commands.category": "MiniMax TTS",
     "minimaxTts.commands.speakSelection.title": "Speak Selected Text",
     "minimaxTts.commands.speakInput.title": "Speak Input Text",
+    "minimaxTts.commands.speakDocumentWithRoles.title": "Speak Document with Character Voices",
     "minimaxTts.commands.setApiKey.title": "Set API Key",
     "minimaxTts.commands.pause.title": "Pause / Resume",
     "minimaxTts.commands.stop.title": "Stop",
@@ -10,6 +11,7 @@
     "minimaxTts.configuration.properties.apiHost.description": "MiniMax API host URL. Must use HTTPS. Defaults to the global endpoint https://api.minimax.io.",
     "minimaxTts.configuration.properties.model.description": "MiniMax speech synthesis model. HD generally offers higher quality; Turbo is faster.",
     "minimaxTts.configuration.properties.voiceId.description": "Default voice ID. You can use MiniMax built-in voices, cloned voices, or any voice ID available to your account.",
+    "minimaxTts.configuration.properties.roleVoices.description": "Voice IDs per character type for the \"Speak Document with Character Voices\" command. Keys: narrator, male, female, girl, boy, child, elderly. Specific characters can be reassigned in the confirmation step of that command.",
     "minimaxTts.configuration.properties.format.description": "Output audio format. HTTP non-streaming supports mp3, wav, and flac.",
     "minimaxTts.configuration.properties.sampleRate.description": "Audio sample rate.",
     "minimaxTts.configuration.properties.bitrate.description": "Audio bitrate.",
@@ -34,5 +36,8 @@
     "minimaxTts.languageModelTools.speakText.userDescription": "Speak text using MiniMax TTS.",
     "minimaxTts.languageModelTools.speakText.inputSchema.text.description": "The text to convert to speech and play.",
     "minimaxTts.languageModelTools.speakText.inputSchema.voice_id.description": "Optional MiniMax voice ID.",
-    "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "Optional MiniMax speech model."
+    "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "Optional MiniMax speech model.",
+    "minimaxTts.commands.configureRoleAnalysis.title": "Configure Role Analysis",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "OpenAI-compatible API endpoint for role analysis, e.g. https://api.deepseek.com.",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "Model name for the OpenAI-compatible API, e.g. deepseek-chat."
 }

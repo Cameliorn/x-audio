@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { AudioFormat, MiniMaxTtsConfig, getMiniMaxConfig } from './config';
 import { UserVisibleError } from './errors';
+import { t } from './i18n';
 import { ApiKeyProvider } from './secretManager';
 import { MiniMaxSynthesizer, TtsRequestOverrides } from './types';
 
@@ -42,12 +43,12 @@ export class TtsService {
   ): Promise<TtsAudioFile> {
     const text = request.text.trim();
     if (text.length === 0) {
-      throw new UserVisibleError('没有可朗读的文本。');
+      throw new UserVisibleError(t('tts.emptyText'));
     }
 
     const config = this.configProvider();
     if (text.length > config.maxTextLength) {
-      throw new UserVisibleError(`MiniMax 文字转语音单次请求最多支持 ${config.maxTextLength} 个字符。请选择更短的文本。`);
+      throw new UserVisibleError(t('tts.textTooLong', config.maxTextLength));
     }
 
     const cacheRoot = vscode.Uri.joinPath(this.context.globalStorageUri, 'audio-cache');

@@ -6,6 +6,7 @@ import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
+import { t } from './i18n';
 import { TtsAudioFile, fileExists } from './ttsService';
 
 const execFileAsync = promisify(execFile);
@@ -61,7 +62,8 @@ export class AudioPlayerPanel {
   private readonly html: string;
   private readonly contentSecurityPolicy: string;
   private version = 0;
-  private audioFile: TtsAudioFile | undefined;
+  private readonly pageGen = Date.now();
+  private queue: readonly TtsAudioFile[] = [];
   private browserChild: ChildProcess | undefined;
   private browserProfilePath = '';
 
@@ -70,13 +72,21 @@ export class AudioPlayerPanel {
     _playerRoot: vscode.Uri
   ) {
     this.browserProfileRoot = vscode.Uri.joinPath(context.globalStorageUri, 'browser-profile');
-    const page = getPlayerPage();
+    const page = getPlayerPage(this.pageGen);
     this.html = page.html;
     this.contentSecurityPolicy = page.contentSecurityPolicy;
   }
 
   public async play(audioFile: TtsAudioFile, _text?: string): Promise<void> {
-    this.audioFile = audioFile;
+    await this.playQueue([audioFile]);
+  }
+
+  public async playQueue(files: readonly TtsAudioFile[]): Promise<void> {
+    if (files.length === 0) {
+      return;
+    }
+
+    this.queue = files;
     this.version++;
     await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
     const url = await this.ensureServerUrl();
@@ -93,11 +103,11 @@ export class AudioPlayerPanel {
   }
 
   public pause(): void {
-    vscode.window.showInformationMessage('外部播放器已打开，请在播放器窗口中暂停或恢复播放。');
+    vscode.window.showInformationMessage(t('player.pauseInfo'));
   }
 
   public stop(): void {
-    vscode.window.showInformationMessage('外部播放器已打开，请在播放器窗口中停止播放。');
+    vscode.window.showInformationMessage(t('player.stopInfo'));
   }
 
   public dispose(): void {
@@ -135,7 +145,7 @@ export class AudioPlayerPanel {
           return;
         }
 
-        reject(new Error('无法启动本地播放器服务。'));
+        reject(new Error(t('player.serverStartFailed')));
       });
     });
 
@@ -160,12 +170,14 @@ export class AudioPlayerPanel {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store'
       });
-      response.end(JSON.stringify({ version: this.version }));
+      response.end(JSON.stringify({ version: this.version, count: this.queue.length, pageGen: this.pageGen }));
       return;
     }
 
     if (requestUrl.pathname === `/${this.routeToken}/audio`) {
-      await this.serveAudio(request, response);
+      const indexParam = Number.parseInt(requestUrl.searchParams.get('index') ?? '', 10);
+      const index = Number.isInteger(indexParam) && indexParam >= 0 ? indexParam : 0;
+      await this.serveAudio(request, response, index);
       return;
     }
 
@@ -185,8 +197,8 @@ export class AudioPlayerPanel {
     response.end(request.method === 'HEAD' ? undefined : this.html);
   }
 
-  private async serveAudio(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
-    const audioFile = this.audioFile;
+  private async serveAudio(request: http.IncomingMessage, response: http.ServerResponse, index: number): Promise<void> {
+    const audioFile = this.queue[index];
     if (!audioFile) {
       response.writeHead(404);
       response.end();
@@ -246,7 +258,7 @@ async function launchBrowserWindow(
     return;
   }
 
-  throw new Error('无法打开外部播放器页面。');
+  throw new Error(t('player.openFailed'));
 }
 
 async function launchOnMac(
@@ -277,7 +289,7 @@ async function launchOnMac(
     return;
   }
 
-  throw new Error('无法打开外部播放器页面。请确认系统已安装 Safari、Chrome、Edge 或其他浏览器。');
+  throw new Error(t('player.noBrowser'));
 }
 
 async function tryOpen(args: readonly string[]): Promise<boolean> {
@@ -347,7 +359,7 @@ interface PlayerPage {
   readonly contentSecurityPolicy: string;
 }
 
-function getPlayerPage(): PlayerPage {
+function getPlayerPage(pageGen: number): PlayerPage {
   const nonce = crypto.randomBytes(16).toString('base64');
   const escapedNonce = escapeAttribute(nonce);
 
@@ -403,22 +415,42 @@ function getPlayerPage(): PlayerPage {
 
       const audio = document.getElementById('audio');
       var currentVersion = 0;
+      var currentIndex = 0;
+      var currentCount = 1;
+      var pageGen = ${pageGen};
       var versionUrl = window.location.pathname + '/version';
 
       function startPlayback() {
         audio.play().catch(function () {});
       }
 
-      function playVersion(version) {
+      function loadCurrent() {
+        audio.src = window.location.pathname + '/audio?version=' + encodeURIComponent(String(currentVersion))
+          + '&index=' + encodeURIComponent(String(currentIndex));
+        audio.load();
+        startPlayback();
+      }
+
+      function playVersion(version, count) {
+        if (typeof count === 'number' && count > 0) {
+          currentCount = count;
+        }
+
         if (!version || version === currentVersion) {
           return;
         }
 
         currentVersion = version;
-        audio.src = window.location.pathname + '/audio?version=' + encodeURIComponent(String(version));
-        audio.load();
-        startPlayback();
+        currentIndex = 0;
+        loadCurrent();
       }
+
+      audio.addEventListener('ended', function () {
+        if (currentIndex + 1 < currentCount) {
+          currentIndex++;
+          loadCurrent();
+        }
+      });
 
       startPlayback();
       window.addEventListener('load', startPlayback);
@@ -428,8 +460,12 @@ function getPlayerPage(): PlayerPage {
         fetch(versionUrl)
           .then(function (r) { return r.json(); })
           .then(function (data) {
+            if (typeof data.pageGen === 'number' && data.pageGen !== pageGen) {
+              window.location.reload();
+              return;
+            }
             if (typeof data.version === 'number') {
-              playVersion(data.version);
+              playVersion(data.version, data.count);
             }
           })
           .catch(function () {})

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { t } from './i18n';
 import { SpeakRequest, TtsAudioFile } from './ttsService';
 
 export interface SpeakTextToolInput {
@@ -13,7 +14,7 @@ export type SpeakExecutor = (
 ) => Promise<TtsAudioFile>;
 
 export class SpeakTextTool implements vscode.LanguageModelTool<SpeakTextToolInput> {
-  public constructor(private readonly speak: SpeakExecutor) {}
+  public constructor(private readonly speak: SpeakExecutor) { }
 
   public async prepareInvocation(
     options: vscode.LanguageModelToolInvocationPrepareOptions<SpeakTextToolInput>,
@@ -23,16 +24,16 @@ export class SpeakTextTool implements vscode.LanguageModelTool<SpeakTextToolInpu
     const voice = options.input.voice_id?.trim();
     const model = options.input.model?.trim();
     const details = [
-      `${characterCount} 个字符`,
-      voice ? `音色 \`${voice}\`` : undefined,
-      model ? `模型 \`${model}\`` : undefined
+      t('speakTextTool.characters', characterCount),
+      voice ? t('speakTextTool.voiceLabel', voice) : undefined,
+      model ? t('speakTextTool.modelLabel', model) : undefined
     ].filter(Boolean).join(', ');
 
     return {
-      invocationMessage: '正在生成 MiniMax 语音',
+      invocationMessage: t('speakTextTool.invocationMessage'),
       confirmationMessages: {
-        title: '使用 MiniMax 文字转语音播放文本',
-        message: new vscode.MarkdownString(`要为${details || '提供的文本'}生成并播放 MiniMax 语音吗？这会消耗 MiniMax 额度或账户余额。`)
+        title: t('speakTextTool.confirmationTitle'),
+        message: new vscode.MarkdownString(t('speakTextTool.confirmationMessage', details || t('speakTextTool.providedText')))
       }
     };
   }
@@ -44,7 +45,7 @@ export class SpeakTextTool implements vscode.LanguageModelTool<SpeakTextToolInpu
     const text = options.input.text;
 
     if (typeof text !== 'string' || text.trim().length === 0) {
-      throw new Error('text 参数必须是非空字符串。');
+      throw new Error(t('speakTextTool.emptyText'));
     }
 
     const result = await this.speak({
@@ -53,9 +54,9 @@ export class SpeakTextTool implements vscode.LanguageModelTool<SpeakTextToolInpu
       model: options.input.model
     }, token);
 
-    const cacheText = result.cacheHit ? ' 已复用缓存音频。' : '';
+    const cacheText = result.cacheHit ? t('speakTextTool.cacheHit') : '';
     return new vscode.LanguageModelToolResult([
-      new vscode.LanguageModelTextPart(`正在使用 MiniMax 文字转语音播放 ${result.characters} 个字符。${cacheText}`)
+      new vscode.LanguageModelTextPart(t('speakTextTool.result', result.characters, cacheText))
     ]);
   }
 }

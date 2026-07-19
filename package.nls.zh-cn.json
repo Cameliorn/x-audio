@@ -3,6 +3,7 @@
     "minimaxTts.commands.category": "MiniMax 文字转语音",
     "minimaxTts.commands.speakSelection.title": "朗读选中文本",
     "minimaxTts.commands.speakInput.title": "朗读输入文本",
+    "minimaxTts.commands.speakDocumentWithRoles.title": "分角色朗读文档",
     "minimaxTts.commands.setApiKey.title": "设置密钥",
     "minimaxTts.commands.pause.title": "暂停 / 恢复播放",
     "minimaxTts.commands.stop.title": "停止播放",
@@ -10,6 +11,7 @@
     "minimaxTts.configuration.properties.apiHost.description": "MiniMax API 地址。必须使用 HTTPS；默认使用全球站 https://api.minimax.io。",
     "minimaxTts.configuration.properties.model.description": "MiniMax 语音合成模型。HD 通常质量更高，Turbo 通常速度更快。",
     "minimaxTts.configuration.properties.voiceId.description": "默认音色 ID。可以填写 MiniMax 内置音色、克隆音色或账号可用的音色 ID。",
+    "minimaxTts.configuration.properties.roleVoices.description": "“分角色朗读文档”按角色类型使用的音色 ID。键：narrator（旁白）、male（成年男性）、female（成年女性）、girl（少女）、boy（少年）、child（幼童）、elderly（老人）。具体角色的音色可在该命令的确认环节中单独修改。",
     "minimaxTts.configuration.properties.format.description": "生成音频格式。HTTP 非流式支持 mp3、wav、flac。",
     "minimaxTts.configuration.properties.sampleRate.description": "音频采样率。",
     "minimaxTts.configuration.properties.bitrate.description": "音频码率。",
@@ -34,5 +36,8 @@
     "minimaxTts.languageModelTools.speakText.userDescription": "使用 MiniMax 语音合成朗读文本。",
     "minimaxTts.languageModelTools.speakText.inputSchema.text.description": "要转换为语音并播放的文本。",
     "minimaxTts.languageModelTools.speakText.inputSchema.voice_id.description": "可选的 MiniMax 音色 ID。",
-    "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "可选的 MiniMax 语音模型。"
+    "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "可选的 MiniMax 语音模型。",
+    "minimaxTts.commands.configureRoleAnalysis.title": "配置角色分析",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "角色分析的 OpenAI 兼容 API 地址，例如 https://api.deepseek.com。",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "角色分析的 OpenAI 兼容模型名，例如 deepseek-chat。"
 }

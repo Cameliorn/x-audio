@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { inspectApiKey, normalizeApiKey } from './apiKey';
 import { MissingApiKeyError } from './errors';
+import { t } from './i18n';
 
 const API_KEY_SECRET = 'minimaxTts.apiKey';
 
@@ -9,7 +10,7 @@ export interface ApiKeyProvider {
 }
 
 export class SecretManager implements ApiKeyProvider {
-  public constructor(private readonly secrets: vscode.SecretStorage) {}
+  public constructor(private readonly secrets: vscode.SecretStorage) { }
 
   public async getApiKey(): Promise<string | undefined> {
     const value = await this.secrets.get(API_KEY_SECRET);
@@ -27,11 +28,11 @@ export class SecretManager implements ApiKeyProvider {
 
   public async promptAndStoreApiKey(): Promise<boolean> {
     const apiKey = await vscode.window.showInputBox({
-      title: '设置 MiniMax 密钥',
-      prompt: '粘贴用于 MiniMax 语音合成的密钥。语音订阅（Audio Subscription）请使用“账户 > API 密钥”（Account > API Keys）中的 API Platform key；Token Plan/Credits 请使用“计费 > Token Plan”（Billing > Token Plan）中的 Subscription Key。',
+      title: t('secretManager.setKeyTitle'),
+      prompt: t('secretManager.setKeyPrompt'),
       password: true,
       ignoreFocusOut: true,
-      validateInput: value => value.trim().length === 0 ? 'MiniMax 密钥不能为空。' : undefined
+      validateInput: value => value.trim().length === 0 ? t('secretManager.keyEmpty') : undefined
     });
 
     if (!apiKey) {
@@ -40,8 +41,8 @@ export class SecretManager implements ApiKeyProvider {
 
     const info = inspectApiKey(apiKey);
     await this.secrets.store(API_KEY_SECRET, info.normalizedApiKey);
-    const keyType = info.isJwt ? '订阅密钥' : '密钥';
-    vscode.window.showInformationMessage(`MiniMax ${keyType}已保存。`);
+    const keyType = info.isJwt ? t('secretManager.jwtKey') : t('secretManager.apiKey');
+    vscode.window.showInformationMessage(t('secretManager.keySaved', keyType));
     return true;
   }
 

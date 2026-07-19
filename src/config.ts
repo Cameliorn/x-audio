@@ -1,12 +1,19 @@
 import * as vscode from 'vscode';
 import { UserVisibleError } from './errors';
+import { t } from './i18n';
+import { ROLE_VOICE_TYPES, RoleVoiceType } from './roleAnalyzer';
 
 export type AudioFormat = 'mp3' | 'wav' | 'flac';
+export interface RoleAnalysisConfig {
+  readonly openaiEndpoint: string;
+  readonly openaiModel: string;
+}
 
 export interface MiniMaxTtsConfig {
   readonly apiHost: string;
   readonly model: string;
   readonly voiceId: string;
+  readonly roleVoices: Readonly<Record<RoleVoiceType, string>>;
   readonly format: AudioFormat;
   readonly sampleRate: number;
   readonly bitrate: number;
@@ -28,12 +35,24 @@ export interface MiniMaxTtsConfig {
   readonly cacheMaxSizeMb: number;
   readonly maxTextLength: number;
   readonly requestTimeoutMs: number;
+  readonly roleAnalysis: RoleAnalysisConfig;
 }
+
+export const DEFAULT_ROLE_VOICES: Readonly<Record<RoleVoiceType, string>> = {
+  narrator: 'audiobook_female_1',
+  male: 'female-yujie',
+  female: 'female-tianmei',
+  girl: 'female-shaonv',
+  boy: 'female-shaonv',
+  child: 'female-shaonv',
+  elderly: 'audiobook_female_2'
+};
 
 export const DEFAULT_CONFIG: MiniMaxTtsConfig = {
   apiHost: 'https://api.minimax.io',
   model: 'speech-2.8-turbo',
   voiceId: 'English_expressive_narrator',
+  roleVoices: DEFAULT_ROLE_VOICES,
   format: 'mp3',
   sampleRate: 32000,
   bitrate: 128000,
@@ -54,7 +73,11 @@ export const DEFAULT_CONFIG: MiniMaxTtsConfig = {
   cacheEnabled: true,
   cacheMaxSizeMb: 512,
   maxTextLength: 10000,
-  requestTimeoutMs: 60000
+  requestTimeoutMs: 60000,
+  roleAnalysis: {
+    openaiEndpoint: 'https://api.deepseek.com',
+    openaiModel: 'deepseek-chat'
+  }
 };
 
 export function getMiniMaxConfig(): MiniMaxTtsConfig {
@@ -64,6 +87,7 @@ export function getMiniMaxConfig(): MiniMaxTtsConfig {
     apiHost: readApiHost(settings, DEFAULT_CONFIG.apiHost),
     model: readString(settings, 'model', DEFAULT_CONFIG.model),
     voiceId: readString(settings, 'voiceId', DEFAULT_CONFIG.voiceId),
+    roleVoices: readRoleVoices(settings.get<unknown>('roleVoices')),
     format: readAudioFormat(settings.get<string>('format'), DEFAULT_CONFIG.format),
     sampleRate: readNumber(settings, 'sampleRate', DEFAULT_CONFIG.sampleRate),
     bitrate: readNumber(settings, 'bitrate', DEFAULT_CONFIG.bitrate),
@@ -84,7 +108,21 @@ export function getMiniMaxConfig(): MiniMaxTtsConfig {
     cacheEnabled: settings.get<boolean>('cacheEnabled', DEFAULT_CONFIG.cacheEnabled),
     cacheMaxSizeMb: readNonNegativeNumber(settings, 'cacheMaxSizeMb', DEFAULT_CONFIG.cacheMaxSizeMb),
     maxTextLength: DEFAULT_CONFIG.maxTextLength,
-    requestTimeoutMs: DEFAULT_CONFIG.requestTimeoutMs
+    requestTimeoutMs: DEFAULT_CONFIG.requestTimeoutMs,
+    roleAnalysis: getRoleAnalysisConfig(settings)
+  };
+}
+
+export function getRoleAnalysisConfig(settings: vscode.WorkspaceConfiguration): RoleAnalysisConfig {
+  return {
+    openaiEndpoint: readNonEmptyString(
+      settings.get<string>('roleAnalysis.openaiEndpoint'),
+      DEFAULT_CONFIG.roleAnalysis.openaiEndpoint
+    ),
+    openaiModel: readNonEmptyString(
+      settings.get<string>('roleAnalysis.openaiModel'),
+      DEFAULT_CONFIG.roleAnalysis.openaiModel
+    )
   };
 }
 
@@ -98,15 +136,15 @@ export function normalizeApiHost(apiHost: string): string {
   try {
     url = new URL(trimmed);
   } catch {
-    throw new UserVisibleError('MiniMax API 地址必须是有效的 URL。');
+    throw new UserVisibleError(t('config.invalidApiHost'));
   }
 
   if (url.username || url.password || url.search || url.hash) {
-    throw new UserVisibleError('MiniMax API 地址不能包含用户名、密码、查询参数或片段。');
+    throw new UserVisibleError(t('config.apiHostExtraComponents'));
   }
 
   if (!isSecureApiHost(url)) {
-    throw new UserVisibleError('MiniMax API 地址必须使用 HTTPS；本地回环调试地址可使用 HTTP。');
+    throw new UserVisibleError(t('config.apiHostNotSecure'));
   }
 
   return url.toString().replace(/\/+$/, '');
@@ -116,6 +154,17 @@ function readApiHost(settings: vscode.WorkspaceConfiguration, fallback: string):
   const inspected = settings.inspect<string>('apiHost');
   const value = typeof inspected?.globalValue === 'string' ? inspected.globalValue : fallback;
   return normalizeApiHost(value);
+}
+
+function readNonEmptyString(value: string | undefined, fallback: string): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return fallback;
 }
 
 function readString(settings: vscode.WorkspaceConfiguration, key: string, fallback: string): string {
@@ -170,6 +219,20 @@ function readObject(value: unknown): Readonly<Record<string, unknown>> {
   }
 
   return value as Readonly<Record<string, unknown>>;
+}
+
+function readRoleVoices(value: unknown): Readonly<Record<RoleVoiceType, string>> {
+  const source = !value || typeof value !== 'object' || Array.isArray(value)
+    ? {}
+    : value as Record<string, unknown>;
+  const result = {} as Record<RoleVoiceType, string>;
+
+  for (const type of ROLE_VOICE_TYPES) {
+    const raw = source[type];
+    result[type] = typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : DEFAULT_ROLE_VOICES[type];
+  }
+
+  return result;
 }
 
 function isSecureApiHost(url: URL): boolean {

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { MiniMaxTtsConfig, normalizeApiHost } from './config';
 import { MiniMaxApiError, UserVisibleError } from './errors';
+import { t } from './i18n';
 
 export interface TtsRequestOverrides {
   readonly model?: string;
@@ -95,25 +96,25 @@ export function decodeHexAudio(hexAudio: string): Uint8Array {
   const normalized = hexAudio.trim();
 
   if (normalized.length === 0) {
-    throw new UserVisibleError('MiniMax 返回了空音频数据。');
+    throw new UserVisibleError(t('minimax.emptyAudio'));
   }
 
   if (normalized.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(normalized)) {
-    throw new UserVisibleError('MiniMax 返回了无效的十六进制音频数据。');
+    throw new UserVisibleError(t('minimax.invalidAudioHex'));
   }
 
   return Buffer.from(normalized, 'hex');
 }
 
 export class MiniMaxClient {
-  public constructor(private readonly fetchImpl: FetchLike = fetch) {}
+  public constructor(private readonly fetchImpl: FetchLike = fetch) { }
 
   public async synthesizeSpeech(
     options: MiniMaxSynthesizeOptions,
     token: vscode.CancellationToken
   ): Promise<MiniMaxSynthesisResult> {
     if (token.isCancellationRequested) {
-      throw new UserVisibleError('MiniMax 文字转语音请求已取消。');
+      throw new UserVisibleError(t('minimax.requestCancelled'));
     }
 
     const controller = new AbortController();
@@ -139,16 +140,16 @@ export class MiniMaxClient {
       const body = parseMiniMaxResponse(bodyText, response.status);
 
       if (!response.ok) {
-        throw toMiniMaxApiError(body, `MiniMax 文字转语音请求失败，HTTP 状态码 ${response.status}。`);
+        throw toMiniMaxApiError(body, t('minimax.httpError', response.status));
       }
 
       const statusCode = body.base_resp?.status_code ?? 0;
       if (statusCode !== 0) {
-        throw toMiniMaxApiError(body, 'MiniMax 文字转语音请求失败。');
+        throw toMiniMaxApiError(body, t('minimax.requestFailed'));
       }
 
       if (!body.data?.audio) {
-        throw toMiniMaxApiError(body, 'MiniMax 文字转语音响应中没有音频数据。');
+        throw toMiniMaxApiError(body, t('minimax.noAudioData'));
       }
 
       return {
@@ -158,11 +159,11 @@ export class MiniMaxClient {
       };
     } catch (error) {
       if (timedOut) {
-        throw new UserVisibleError(`MiniMax 文字转语音请求在 ${options.config.requestTimeoutMs / 1000} 秒后超时。`);
+        throw new UserVisibleError(t('minimax.timeout', options.config.requestTimeoutMs / 1000));
       }
 
       if (token.isCancellationRequested) {
-        throw new UserVisibleError('MiniMax 文字转语音请求已取消。');
+        throw new UserVisibleError(t('minimax.requestCancelled'));
       }
 
       throw error;
@@ -183,7 +184,7 @@ function parseMiniMaxResponse(bodyText: string, httpStatus: number): MiniMaxTtsR
     return {
       base_resp: {
         status_code: httpStatus,
-        status_msg: '响应体为空'
+        status_msg: t('minimax.emptyResponseBody')
       }
     };
   }
@@ -210,7 +211,7 @@ function toMiniMaxApiError(response: MiniMaxTtsResponse, fallback: string): Mini
   }
 
   if (response.trace_id) {
-    parts.push(`追踪 ID: ${response.trace_id}`);
+    parts.push(t('minimax.traceId', response.trace_id));
   }
 
   return new MiniMaxApiError(parts.join(' '), response.trace_id, statusCode);

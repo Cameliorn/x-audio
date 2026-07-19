@@ -16,6 +16,9 @@ extension.ts          — 入口（activate/deactivate），注册命令与 LM t
   ├── secretManager.ts — SecretStorage 中的 API 密钥（vscode.SecretStorage）
   ├── minimaxClient.ts — MiniMax TTS API HTTP 客户端（基于 fetch）
   ├── ttsService.ts    — 编排合成流程 + 文件缓存
+  ├── roleAnalyzer.ts  — 使用 Copilot 语言模型（vscode.lm）分析小说角色与对白
+  ├── roleVoiceMapper.ts — 角色 → 音色 ID 映射（workspaceState 持久化角色覆盖）
+  ├── multiRoleTtsService.ts — 分角色多段合成编排
   ├── speakTextTool.ts — vscode.LanguageModelTool 实现
   ├── externalAudioPlayer.ts — 外部 Chromium 浏览器音频播放
   ├── apiKey.ts        — JWT/API 密钥规范化与检测
