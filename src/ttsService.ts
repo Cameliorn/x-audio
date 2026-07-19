@@ -14,6 +14,10 @@ export interface SpeakRequest {
   readonly text: string;
   readonly voiceId?: string;
   readonly model?: string;
+  readonly speed?: number;
+  readonly pitch?: number;
+  readonly vol?: number;
+  readonly emotion?: string;
 }
 
 export interface TtsAudioFile {
@@ -56,7 +60,11 @@ export class TtsService {
 
     const cacheKey = createCacheKey(text, config, {
       voiceId: request.voiceId,
-      model: request.model
+      model: request.model,
+      speed: request.speed,
+      pitch: request.pitch,
+      vol: request.vol,
+      emotion: request.emotion
     });
     const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${config.format}`);
 
@@ -102,7 +110,11 @@ export class TtsService {
       config,
       overrides: {
         voiceId: request.voiceId,
-        model: request.model
+        model: request.model,
+        speed: request.speed,
+        pitch: request.pitch,
+        vol: request.vol,
+        emotion: request.emotion
       }
     }, token);
 
@@ -134,9 +146,10 @@ function createCacheKey(
     sampleRate: config.sampleRate,
     bitrate: config.bitrate,
     channel: config.channel,
-    speed: config.speed,
-    vol: config.vol,
-    pitch: config.pitch,
+    speed: overrides.speed ?? config.speed,
+    vol: overrides.vol ?? config.vol,
+    pitch: overrides.pitch ?? config.pitch,
+    emotion: overrides.emotion ?? null,
     languageBoost: config.languageBoost,
     pronunciationTone: config.pronunciationTone,
     voiceModifyEnabled: config.voiceModifyEnabled,

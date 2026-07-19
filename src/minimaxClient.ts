@@ -6,6 +6,10 @@ import { t } from './i18n';
 export interface TtsRequestOverrides {
   readonly model?: string;
   readonly voiceId?: string;
+  readonly speed?: number;
+  readonly pitch?: number;
+  readonly vol?: number;
+  readonly emotion?: string;
 }
 
 export interface MiniMaxSynthesizeOptions {
@@ -52,9 +56,10 @@ export function buildMiniMaxTtsPayload(
     output_format: 'hex',
     voice_setting: {
       voice_id: readOverride(overrides.voiceId, config.voiceId),
-      speed: config.speed,
-      vol: config.vol,
-      pitch: config.pitch
+      speed: readNumberOverride(overrides.speed, config.speed),
+      vol: readNumberOverride(overrides.vol, config.vol),
+      pitch: readNumberOverride(overrides.pitch, config.pitch),
+      ...(overrides.emotion ? { emotion: overrides.emotion } : {})
     },
     audio_setting: {
       sample_rate: config.sampleRate,
@@ -177,6 +182,10 @@ export class MiniMaxClient {
 function readOverride(value: string | undefined, fallback: string): string {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : fallback;
+}
+
+function readNumberOverride(value: number | undefined, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function parseMiniMaxResponse(bodyText: string, httpStatus: number): MiniMaxTtsResponse {

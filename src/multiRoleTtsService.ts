@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { getMiniMaxConfig } from './config';
 import { UserVisibleError } from './errors';
 import { t } from './i18n';
-import { StorySegment, splitTextIntoChunks } from './roleAnalyzer';
+import { StorySegment, applyTextModifiers, splitTextIntoChunks } from './roleAnalyzer';
 import { ConfigProvider, TtsAudioFile, TtsService } from './ttsService';
 
 export interface RoleSpeechSegment extends StorySegment {
@@ -41,9 +41,14 @@ export class MultiRoleTtsService {
       }
 
       const piece = pieces[index];
+      const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece);
       const file = await this.ttsService.synthesizeToFile({
-        text: piece.text,
-        voiceId: piece.voiceId
+        text: finalText,
+        voiceId: piece.voiceId,
+        speed,
+        pitch,
+        vol,
+        emotion
       }, token);
       files.push(file);
       onProgress?.(index + 1, pieces.length, piece);
@@ -51,4 +56,24 @@ export class MultiRoleTtsService {
 
     return files;
   }
+}
+
+interface ResolvedVoiceParams {
+  speed: number | undefined;
+  pitch: number | undefined;
+  vol: number | undefined;
+  emotion: string | undefined;
+  finalText: string;
+}
+
+function resolveVoiceParams(segment: StorySegment): ResolvedVoiceParams {
+  const emotion = segment.emotion === 'neutral' ? undefined : segment.emotion;
+  const finalText = applyTextModifiers(segment.text, segment.soundTags, segment.pauseBefore, segment.transition);
+  return {
+    speed: segment.speed,
+    pitch: segment.pitch,
+    vol: segment.vol,
+    emotion,
+    finalText
+  };
 }

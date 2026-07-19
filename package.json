@@ -2,7 +2,7 @@
   "name": "minimax-tts",
   "displayName": "MiniMax TTS",
   "description": "%minimaxTts.description%",
-  "version": "0.3.0",
+  "version": "0.2.9",
   "publisher": "Cameliorn",
   "icon": "icon.png",
   "license": "MIT",

@@ -72,6 +72,8 @@ export class AudioPlayerPanel {
     _playerRoot: vscode.Uri
   ) {
     this.browserProfileRoot = vscode.Uri.joinPath(context.globalStorageUri, 'browser-profile');
+    // 每次创建实例使用不同的 profile 目录，避免与上次未退出的浏览器进程冲突
+    this.browserProfilePath = path.join(this.browserProfileRoot.fsPath, `session-${Date.now()}`);
     const page = getPlayerPage(this.pageGen);
     this.html = page.html;
     this.contentSecurityPolicy = page.contentSecurityPolicy;
@@ -91,15 +93,17 @@ export class AudioPlayerPanel {
     await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
     const url = await this.ensureServerUrl();
 
-    // 仅在浏览器进程已退出或从未启动时才启动新窗口
-    if (!this.browserChild || this.browserChild.exitCode !== null) {
-      await launchBrowserWindow(url, this.browserProfileRoot.fsPath, this.browserProfilePath,
-        (child, profilePath) => {
-          this.browserChild = child;
-          this.browserProfilePath = profilePath;
-        });
+    // 先杀掉上一次的浏览器进程，确保每次都是全新窗口
+    if (this.browserChild && this.browserChild.exitCode === null) {
+      try { this.browserChild.kill('SIGKILL'); } catch { /* 进程可能已退出 */ }
     }
-    // 如果浏览器已在运行，页面会通过版本号轮询自动检测并刷新
+    this.browserChild = undefined;
+
+    await launchBrowserWindow(url, this.browserProfileRoot.fsPath, this.browserProfilePath,
+      (child, profilePath) => {
+        this.browserChild = child;
+        this.browserProfilePath = profilePath || this.browserProfilePath;
+      });
   }
 
   public pause(): void {
