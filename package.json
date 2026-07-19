@@ -2,7 +2,7 @@
   "name": "minimax-tts",
   "displayName": "MiniMax TTS",
   "description": "%minimaxTts.description%",
-  "version": "0.2.9",
+  "version": "0.3.3",
   "publisher": "Cameliorn",
   "icon": "icon.png",
   "license": "MIT",
@@ -85,6 +85,12 @@
         "title": "%minimaxTts.commands.configureRoleAnalysis.title%",
         "category": "%minimaxTts.commands.category%",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "minimaxTts.setSoundEffectsDir",
+        "title": "%minimaxTts.commands.setSoundEffectsDir.title%",
+        "category": "%minimaxTts.commands.category%",
+        "icon": "$(folder-library)"
       }
     ],
     "menus": {
@@ -122,12 +128,14 @@
       "title": "%minimaxTts.configuration.title%",
       "properties": {
         "minimaxTts.apiHost": {
+          "order": 1,
           "type": "string",
           "default": "https://api.minimax.io",
           "scope": "application",
           "description": "%minimaxTts.configuration.properties.apiHost.description%"
         },
         "minimaxTts.model": {
+          "order": 2,
           "type": "string",
           "enum": [
             "speech-2.8-hd",
@@ -142,28 +150,8 @@
           "default": "speech-2.8-turbo",
           "description": "%minimaxTts.configuration.properties.model.description%"
         },
-        "minimaxTts.voiceId": {
-          "type": "string",
-          "default": "English_expressive_narrator",
-          "description": "%minimaxTts.configuration.properties.voiceId.description%"
-        },
-        "minimaxTts.roleVoices": {
-          "type": "object",
-          "default": {
-            "narrator": "audiobook_female_1",
-            "male": "female-yujie",
-            "female": "female-tianmei",
-            "girl": "female-shaonv",
-            "boy": "female-shaonv",
-            "child": "female-shaonv",
-            "elderly": "audiobook_female_2"
-          },
-          "additionalProperties": {
-            "type": "string"
-          },
-          "description": "%minimaxTts.configuration.properties.roleVoices.description%"
-        },
         "minimaxTts.format": {
+          "order": 3,
           "type": "string",
           "enum": [
             "mp3",
@@ -174,18 +162,21 @@
           "description": "%minimaxTts.configuration.properties.format.description%"
         },
         "minimaxTts.sampleRate": {
+          "order": 4,
           "type": "number",
           "default": 32000,
           "minimum": 8000,
           "description": "%minimaxTts.configuration.properties.sampleRate.description%"
         },
         "minimaxTts.bitrate": {
+          "order": 5,
           "type": "number",
           "default": 128000,
           "minimum": 16000,
           "description": "%minimaxTts.configuration.properties.bitrate.description%"
         },
         "minimaxTts.channel": {
+          "order": 6,
           "type": "number",
           "enum": [
             1,
@@ -194,28 +185,8 @@
           "default": 1,
           "description": "%minimaxTts.configuration.properties.channel.description%"
         },
-        "minimaxTts.speed": {
-          "type": "number",
-          "default": 1,
-          "minimum": 0.5,
-          "maximum": 2,
-          "description": "%minimaxTts.configuration.properties.speed.description%"
-        },
-        "minimaxTts.vol": {
-          "type": "number",
-          "default": 1,
-          "minimum": 0,
-          "maximum": 10,
-          "description": "%minimaxTts.configuration.properties.vol.description%"
-        },
-        "minimaxTts.pitch": {
-          "type": "number",
-          "default": 0,
-          "minimum": -12,
-          "maximum": 12,
-          "description": "%minimaxTts.configuration.properties.pitch.description%"
-        },
         "minimaxTts.languageBoost": {
+          "order": 7,
           "type": "string",
           "enum": [
             "auto",
@@ -264,6 +235,7 @@
           "description": "%minimaxTts.configuration.properties.languageBoost.description%"
         },
         "minimaxTts.pronunciationTone": {
+          "order": 8,
           "type": "array",
           "default": [],
           "items": {
@@ -271,12 +243,50 @@
           },
           "description": "%minimaxTts.configuration.properties.pronunciationTone.description%"
         },
+        "minimaxTts.extraRequestJson": {
+          "order": 9,
+          "type": "object",
+          "default": {},
+          "description": "%minimaxTts.configuration.properties.extraRequestJson.description%"
+        },
+        "minimaxTts.voiceId": {
+          "order": 11,
+          "type": "string",
+          "default": "English_expressive_narrator",
+          "description": "%minimaxTts.configuration.properties.voiceId.description%"
+        },
+        "minimaxTts.speed": {
+          "order": 12,
+          "type": "number",
+          "default": 1,
+          "minimum": 0.5,
+          "maximum": 2,
+          "description": "%minimaxTts.configuration.properties.speed.description%"
+        },
+        "minimaxTts.vol": {
+          "order": 13,
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 10,
+          "description": "%minimaxTts.configuration.properties.vol.description%"
+        },
+        "minimaxTts.pitch": {
+          "order": 14,
+          "type": "number",
+          "default": 0,
+          "minimum": -12,
+          "maximum": 12,
+          "description": "%minimaxTts.configuration.properties.pitch.description%"
+        },
         "minimaxTts.voiceModifyEnabled": {
+          "order": 21,
           "type": "boolean",
           "default": false,
           "description": "%minimaxTts.configuration.properties.voiceModifyEnabled.description%"
         },
         "minimaxTts.voiceModifyPitch": {
+          "order": 22,
           "type": "number",
           "default": 0,
           "minimum": -12,
@@ -284,26 +294,31 @@
           "description": "%minimaxTts.configuration.properties.voiceModifyPitch.description%"
         },
         "minimaxTts.voiceModifyIntensity": {
+          "order": 23,
           "type": "number",
           "default": 0,
           "description": "%minimaxTts.configuration.properties.voiceModifyIntensity.description%"
         },
         "minimaxTts.voiceModifyTimbre": {
+          "order": 24,
           "type": "number",
           "default": 0,
           "description": "%minimaxTts.configuration.properties.voiceModifyTimbre.description%"
         },
         "minimaxTts.voiceModifySoundEffects": {
+          "order": 25,
           "type": "string",
           "default": "",
           "description": "%minimaxTts.configuration.properties.voiceModifySoundEffects.description%"
         },
         "minimaxTts.subtitleEnable": {
+          "order": 31,
           "type": "boolean",
           "default": false,
           "description": "%minimaxTts.configuration.properties.subtitleEnable.description%"
         },
         "minimaxTts.subtitleType": {
+          "order": 32,
           "type": "string",
           "enum": [
             "sentence",
@@ -312,33 +327,55 @@
           "default": "sentence",
           "description": "%minimaxTts.configuration.properties.subtitleType.description%"
         },
-        "minimaxTts.extraRequestJson": {
-          "type": "object",
-          "default": {},
-          "description": "%minimaxTts.configuration.properties.extraRequestJson.description%"
-        },
         "minimaxTts.cacheEnabled": {
+          "order": 41,
           "type": "boolean",
           "default": true,
           "description": "%minimaxTts.configuration.properties.cacheEnabled.description%"
         },
         "minimaxTts.cacheMaxSizeMb": {
+          "order": 42,
           "type": "number",
           "default": 512,
           "minimum": 0,
           "description": "%minimaxTts.configuration.properties.cacheMaxSizeMb.description%"
         },
+        "minimaxTts.roleVoices": {
+          "order": 51,
+          "type": "object",
+          "default": {
+            "narrator": "audiobook_female_1",
+            "male": "female-yujie",
+            "female": "female-tianmei",
+            "girl": "female-shaonv",
+            "boy": "female-shaonv",
+            "child": "female-shaonv",
+            "elderly": "audiobook_female_2"
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "%minimaxTts.configuration.properties.roleVoices.description%"
+        },
         "minimaxTts.roleAnalysis.openaiEndpoint": {
+          "order": 52,
           "type": "string",
           "default": "https://api.deepseek.com",
           "scope": "application",
           "description": "%minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description%"
         },
         "minimaxTts.roleAnalysis.openaiModel": {
+          "order": 53,
           "type": "string",
           "default": "deepseek-chat",
           "scope": "application",
           "description": "%minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description%"
+        },
+        "minimaxTts.soundEffectsDir": {
+          "order": 61,
+          "type": "string",
+          "default": "",
+          "description": "%minimaxTts.configuration.properties.soundEffectsDir.description%"
         }
       }
     },

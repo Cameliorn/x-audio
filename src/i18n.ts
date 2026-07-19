@@ -20,8 +20,9 @@ const zhCn: MessageBundle = {
 
     // externalAudioPlayer
     'player.serverStartFailed': '无法启动本地播放器服务。',
-    'player.pauseInfo': '外部播放器已打开，请在播放器窗口中暂停或恢复播放。',
-    'player.stopInfo': '外部播放器已打开，请在播放器窗口中停止播放。',
+    'player.pauseInfo': '播放已暂停。',
+    'player.resumeInfo': '播放已恢复。',
+    'player.stopInfo': '播放已停止。',
     'player.openFailed': '无法打开外部播放器页面。',
     'player.noBrowser': '无法打开外部播放器页面。请确认系统已安装 Safari、Chrome、Edge 或其他浏览器。',
 
@@ -74,6 +75,8 @@ const zhCn: MessageBundle = {
     'extension.modelNameTitle': '模型名',
     'extension.keepExistingKey': '留空则保留现有密钥',
     'extension.roleAnalysisConfigured': '角色分析：{0} @ {1}',
+    'extension.setSoundEffectsDirTitle': '选择音效素材库文件夹',
+    'extension.soundEffectsDirSet': '音效素材库已设置为：{0}',
 
     // secretManager
     'secretManager.setKeyTitle': '设置 MiniMax 密钥',
@@ -124,6 +127,7 @@ const en: MessageBundle = {
 
     'player.serverStartFailed': 'Failed to start local player server.',
     'player.pauseInfo': 'External player is open. Use the player window to pause or resume playback.',
+    'player.resumeInfo': 'Playback resumed.',
     'player.stopInfo': 'External player is open. Use the player window to stop playback.',
     'player.openFailed': 'Failed to open external player page.',
     'player.noBrowser': 'Failed to open external player page. Please make sure Safari, Chrome, Edge, or another browser is installed.',
@@ -173,6 +177,8 @@ const en: MessageBundle = {
     'extension.modelNameTitle': 'Model Name',
     'extension.keepExistingKey': 'Leave blank to keep existing key',
     'extension.roleAnalysisConfigured': 'Role analysis: {0} @ {1}',
+    'extension.setSoundEffectsDirTitle': 'Select Sound Effects Library Folder',
+    'extension.soundEffectsDirSet': 'Sound effects library set to: {0}',
 
     'secretManager.setKeyTitle': 'Set MiniMax API Key',
     'secretManager.setKeyPrompt': 'Paste your MiniMax API key. For Audio Subscription, use the API Platform key from "Account > API Keys". For Token Plan/Credits, use the Subscription Key from "Billing > Token Plan".',

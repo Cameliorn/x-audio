@@ -38,6 +38,8 @@
     "minimaxTts.languageModelTools.speakText.inputSchema.voice_id.description": "Optional MiniMax voice ID.",
     "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "Optional MiniMax speech model.",
     "minimaxTts.commands.configureRoleAnalysis.title": "Configure Role Analysis",
+    "minimaxTts.commands.setSoundEffectsDir.title": "Set Sound Effects Library Folder",
     "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "OpenAI-compatible API endpoint for role analysis, e.g. https://api.deepseek.com.",
-    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "Model name for the OpenAI-compatible API, e.g. deepseek-chat."
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "Model name for the OpenAI-compatible API, e.g. deepseek-chat.",
+    "minimaxTts.configuration.properties.soundEffectsDir.description": "Background sound effects library directory. Subdirectories serve as categories. During character-voiced playback, DeepSeek automatically analyzes the text scene and matches a sound effect from the corresponding category."
 }

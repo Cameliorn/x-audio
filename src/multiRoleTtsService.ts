@@ -4,6 +4,7 @@ import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { StorySegment, applyTextModifiers, splitTextIntoChunks } from './roleAnalyzer';
 import { ConfigProvider, TtsAudioFile, TtsService } from './ttsService';
+import { VoiceParams, applyVoiceConfig } from './voiceConfigFile';
 
 export interface RoleSpeechSegment extends StorySegment {
   readonly voiceId: string;
@@ -20,7 +21,8 @@ export class MultiRoleTtsService {
   public async synthesizeSegments(
     segments: readonly RoleSpeechSegment[],
     token: vscode.CancellationToken,
-    onProgress?: SegmentProgressCallback
+    onProgress?: SegmentProgressCallback,
+    voiceParams?: Readonly<Record<string, VoiceParams>>
   ): Promise<TtsAudioFile[]> {
     if (segments.length === 0) {
       throw new UserVisibleError(t('multiRoleTts.noSegments'));
@@ -41,7 +43,7 @@ export class MultiRoleTtsService {
       }
 
       const piece = pieces[index];
-      const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece);
+      const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece, voiceParams);
       const file = await this.ttsService.synthesizeToFile({
         text: finalText,
         voiceId: piece.voiceId,
@@ -66,14 +68,9 @@ interface ResolvedVoiceParams {
   finalText: string;
 }
 
-function resolveVoiceParams(segment: StorySegment): ResolvedVoiceParams {
+function resolveVoiceParams(segment: StorySegment, voiceParams?: Readonly<Record<string, VoiceParams>>): ResolvedVoiceParams {
   const emotion = segment.emotion === 'neutral' ? undefined : segment.emotion;
   const finalText = applyTextModifiers(segment.text, segment.soundTags, segment.pauseBefore, segment.transition);
-  return {
-    speed: segment.speed,
-    pitch: segment.pitch,
-    vol: segment.vol,
-    emotion,
-    finalText
-  };
+  const { speed, pitch, vol } = applyVoiceConfig(segment, voiceParams);
+  return { speed, pitch, vol, emotion, finalText };
 }

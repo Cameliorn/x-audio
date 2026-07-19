@@ -31,6 +31,7 @@ export interface MiniMaxTtsConfig {
   readonly subtitleEnable: boolean;
   readonly subtitleType: 'sentence' | 'word';
   readonly extraRequestJson: Readonly<Record<string, unknown>>;
+  readonly soundEffectsDir: string;
   readonly cacheEnabled: boolean;
   readonly cacheMaxSizeMb: number;
   readonly maxTextLength: number;
@@ -70,6 +71,7 @@ export const DEFAULT_CONFIG: MiniMaxTtsConfig = {
   subtitleEnable: false,
   subtitleType: 'sentence',
   extraRequestJson: {},
+  soundEffectsDir: '',
   cacheEnabled: true,
   cacheMaxSizeMb: 512,
   maxTextLength: 10000,
@@ -105,6 +107,7 @@ export function getMiniMaxConfig(): MiniMaxTtsConfig {
     subtitleEnable: settings.get<boolean>('subtitleEnable', DEFAULT_CONFIG.subtitleEnable),
     subtitleType: readSubtitleType(settings.get<string>('subtitleType'), DEFAULT_CONFIG.subtitleType),
     extraRequestJson: readObject(settings.get<unknown>('extraRequestJson')),
+    soundEffectsDir: readString(settings, 'soundEffectsDir', DEFAULT_CONFIG.soundEffectsDir),
     cacheEnabled: settings.get<boolean>('cacheEnabled', DEFAULT_CONFIG.cacheEnabled),
     cacheMaxSizeMb: readNonNegativeNumber(settings, 'cacheMaxSizeMb', DEFAULT_CONFIG.cacheMaxSizeMb),
     maxTextLength: DEFAULT_CONFIG.maxTextLength,

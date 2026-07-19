@@ -7,6 +7,7 @@ import * as path from 'path';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
 import { t } from './i18n';
+import { getAudioMime, getAudioMimeFromPath, getPlayerPage } from './playerPage';
 import { TtsAudioFile, fileExists } from './ttsService';
 
 const execFileAsync = promisify(execFile);
@@ -64,7 +65,10 @@ export class AudioPlayerPanel {
   private version = 0;
   private readonly pageGen = Date.now();
   private queue: readonly TtsAudioFile[] = [];
+  private currentSfxPath: string | undefined;
   private browserChild: ChildProcess | undefined;
+  private pendingCommand: 'pause' | 'resume' | 'stop' | undefined;
+  private isPaused = false;
   private browserProfilePath = '';
 
   public constructor(
@@ -79,17 +83,22 @@ export class AudioPlayerPanel {
     this.contentSecurityPolicy = page.contentSecurityPolicy;
   }
 
-  public async play(audioFile: TtsAudioFile, _text?: string): Promise<void> {
-    await this.playQueue([audioFile]);
+  public async play(audioFile: TtsAudioFile, _text?: string, soundEffectFile?: string): Promise<void> {
+    await this.playQueue([audioFile], soundEffectFile);
   }
 
-  public async playQueue(files: readonly TtsAudioFile[]): Promise<void> {
+  public async playQueue(files: readonly TtsAudioFile[], soundEffectFile?: string): Promise<void> {
     if (files.length === 0) {
       return;
     }
 
     this.queue = files;
     this.version++;
+    this.isPaused = false;
+    this.pendingCommand = undefined;
+    if (soundEffectFile !== undefined) {
+      this.currentSfxPath = soundEffectFile && soundEffectFile.trim().length > 0 ? soundEffectFile : undefined;
+    }
     await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
     const url = await this.ensureServerUrl();
 
@@ -107,10 +116,26 @@ export class AudioPlayerPanel {
   }
 
   public pause(): void {
-    vscode.window.showInformationMessage(t('player.pauseInfo'));
+    if (this.isPaused) {
+      this.pendingCommand = 'resume';
+      this.isPaused = false;
+      vscode.window.showInformationMessage(t('player.resumeInfo'));
+    } else {
+      this.pendingCommand = 'pause';
+      this.isPaused = true;
+      vscode.window.showInformationMessage(t('player.pauseInfo'));
+    }
   }
 
   public stop(): void {
+    this.pendingCommand = 'stop';
+    this.queue = [];
+    this.currentSfxPath = undefined;
+    this.isPaused = false;
+    if (this.browserChild && this.browserChild.exitCode === null) {
+      try { this.browserChild.kill('SIGKILL'); } catch { /* 进程可能已退出 */ }
+    }
+    this.browserChild = undefined;
     vscode.window.showInformationMessage(t('player.stopInfo'));
   }
 
@@ -170,11 +195,13 @@ export class AudioPlayerPanel {
 
     // 版本号端点，供页面轮询检测更新
     if (requestUrl.pathname === `/${this.routeToken}/version`) {
+      const command = this.pendingCommand;
+      this.pendingCommand = undefined;
       response.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store'
       });
-      response.end(JSON.stringify({ version: this.version, count: this.queue.length, pageGen: this.pageGen }));
+      response.end(JSON.stringify({ version: this.version, count: this.queue.length, pageGen: this.pageGen, sfx: !!this.currentSfxPath, command }));
       return;
     }
 
@@ -182,6 +209,11 @@ export class AudioPlayerPanel {
       const indexParam = Number.parseInt(requestUrl.searchParams.get('index') ?? '', 10);
       const index = Number.isInteger(indexParam) && indexParam >= 0 ? indexParam : 0;
       await this.serveAudio(request, response, index);
+      return;
+    }
+
+    if (requestUrl.pathname === `/${this.routeToken}/sfx`) {
+      await this.serveSoundEffect(request, response);
       return;
     }
 
@@ -244,6 +276,42 @@ export class AudioPlayerPanel {
       response.once('close', resolve);
       stream.pipe(response);
     });
+  }
+
+  private async serveSoundEffect(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
+    if (!this.currentSfxPath) {
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+
+    try {
+      const sfxPath = this.currentSfxPath;
+      const stat = await fs.promises.stat(sfxPath);
+      response.writeHead(200, {
+        'Content-Type': getAudioMimeFromPath(sfxPath),
+        'Content-Length': stat.size,
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff'
+      });
+
+      if (request.method === 'HEAD') {
+        response.end();
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const stream = fs.createReadStream(sfxPath);
+        stream.once('error', reject);
+        response.once('finish', resolve);
+        response.once('close', resolve);
+        stream.pipe(response);
+      });
+    } catch {
+      response.writeHead(404);
+      response.end();
+    }
   }
 }
 
@@ -344,155 +412,4 @@ async function tryLaunchChromiumApp(
   }
 
   return undefined;
-}
-
-function getAudioMime(format: TtsAudioFile['format']): string {
-  switch (format) {
-    case 'wav':
-      return 'audio/wav';
-    case 'flac':
-      return 'audio/flac';
-    case 'mp3':
-    default:
-      return 'audio/mpeg';
-  }
-}
-
-interface PlayerPage {
-  readonly html: string;
-  readonly contentSecurityPolicy: string;
-}
-
-function getPlayerPage(pageGen: number): PlayerPage {
-  const nonce = crypto.randomBytes(16).toString('base64');
-  const escapedNonce = escapeAttribute(nonce);
-
-  return {
-    contentSecurityPolicy: `default-src 'none'; media-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`,
-    html: `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MiniMax 播放器</title>
-  <style nonce="${escapedNonce}">
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      margin: 0;
-      min-width: 360px;
-      min-height: 150px;
-      background: #ffffff;
-      color: #1f2328;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    body {
-      padding: 14px;
-    }
-
-    main {
-      width: 100%;
-      min-height: calc(100vh - 28px);
-      padding: 12px 0;
-      display: grid;
-      align-content: center;
-    }
-
-    audio {
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <main>
-    <audio id="audio" controls autoplay></audio>
-  </main>
-  <script nonce="${escapedNonce}">
-    (function () {
-      try {
-        window.resizeTo(420, 190);
-      } catch (_) {}
-
-      const audio = document.getElementById('audio');
-      var currentVersion = 0;
-      var currentIndex = 0;
-      var currentCount = 1;
-      var pageGen = ${pageGen};
-      var versionUrl = window.location.pathname + '/version';
-
-      function startPlayback() {
-        audio.play().catch(function () {});
-      }
-
-      function loadCurrent() {
-        audio.src = window.location.pathname + '/audio?version=' + encodeURIComponent(String(currentVersion))
-          + '&index=' + encodeURIComponent(String(currentIndex));
-        audio.load();
-        startPlayback();
-      }
-
-      function playVersion(version, count) {
-        if (typeof count === 'number' && count > 0) {
-          currentCount = count;
-        }
-
-        if (!version || version === currentVersion) {
-          return;
-        }
-
-        currentVersion = version;
-        currentIndex = 0;
-        loadCurrent();
-      }
-
-      audio.addEventListener('ended', function () {
-        if (currentIndex + 1 < currentCount) {
-          currentIndex++;
-          loadCurrent();
-        }
-      });
-
-      startPlayback();
-      window.addEventListener('load', startPlayback);
-      setTimeout(startPlayback, 150);
-
-      (function pollVersion() {
-        fetch(versionUrl)
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (typeof data.pageGen === 'number' && data.pageGen !== pageGen) {
-              window.location.reload();
-              return;
-            }
-            if (typeof data.version === 'number') {
-              playVersion(data.version, data.count);
-            }
-          })
-          .catch(function () {})
-          .finally(function () {
-            setTimeout(pollVersion, 1000);
-          });
-      })();
-    })();
-  </script>
-</body>
-</html>`
-  };
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function escapeAttribute(value: string): string {
-  return escapeHtml(value).replace(/`/g, '&#96;');
 }

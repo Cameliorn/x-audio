@@ -5,9 +5,11 @@ import { AudioPlayerPanel } from './externalAudioPlayer';
 import { t } from './i18n';
 import { MiniMaxClient } from './minimaxClient';
 import { MultiRoleTtsService, RoleSpeechSegment } from './multiRoleTtsService';
-import { createRoleAnalysisClient } from './roleAnalysisClient';
-import { NARRATOR_NAME, ROLE_VOICE_LABELS, StorySegment, analyzeStoryRoles } from './roleAnalyzer';
-import { CHARACTER_VOICE_STATE_KEY, RoleAssignment, assignVoices } from './roleVoiceMapper';
+import { RoleAnalysisClient, createRoleAnalysisClient } from './roleAnalysisClient';
+import { StorySegment, analyzeSceneType, analyzeStoryRoles } from './roleAnalyzer';
+import { confirmRoleAssignments } from './roleConfirmation';
+import { CHARACTER_VOICE_STATE_KEY, assignVoices } from './roleVoiceMapper';
+import { pickSoundEffectForScene, setSoundEffectsDir } from './sceneSfx';
 import { SecretManager } from './secretManager';
 import { SpeakExecutor, SpeakTextTool } from './speakTextTool';
 import { TtsService } from './ttsService';
@@ -42,6 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('minimaxTts.stop', () => {
       audioPlayer?.stop();
     }),
+    vscode.commands.registerCommand('minimaxTts.setSoundEffectsDir', () => setSoundEffectsDir()),
     vscode.lm.registerTool('minimax_tts_speak', new SpeakTextTool(speak))
   );
 }
@@ -120,9 +123,11 @@ async function speakDocumentWithRoles(
   }
 
   let segments: StorySegment[];
+  let roleAnalysisClientForScene: RoleAnalysisClient | undefined;
   try {
     const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('minimaxTts'));
     const roleAnalysisClient = createRoleAnalysisClient(roleAnalysisConfig, context.secrets);
+    roleAnalysisClientForScene = roleAnalysisClient;
     segments = await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
       title: t('extension.roleAnalysisProgress', roleAnalysisConfig.openaiModel),
@@ -133,6 +138,22 @@ async function speakDocumentWithRoles(
   } catch (error) {
     await handleError(error, secretManager);
     return;
+  }
+
+  // 场景分析：用 DeepSeek 判断文本氛围，自动匹配背景音效
+  let sceneSfxFile: string | undefined;
+  if (roleAnalysisClientForScene) {
+    try {
+      const sceneType = await analyzeSceneType(text, roleAnalysisClientForScene, new vscode.CancellationTokenSource().token);
+      if (sceneType !== 'none') {
+        const picked = await pickSoundEffectForScene(sceneType);
+        if (picked) {
+          sceneSfxFile = picked;
+        }
+      }
+    } catch {
+      // 场景分析失败不影响主流程，沿用已有的音效设置
+    }
   }
 
   const config = getMiniMaxConfig();
@@ -166,73 +187,15 @@ async function speakDocumentWithRoles(
       cancellable: true
     }, async (progress, token) => multiRoleTtsService.synthesizeSegments(speechSegments, token, (completed, total, segment) =>
       progress.report({ message: `${completed}/${total} ${segment.speaker}` })
-    ));
+      , dirConfig?.voiceParams));
 
-    await audioPlayer?.playQueue(files);
+    await audioPlayer?.playQueue(files, sceneSfxFile);
     vscode.window.setStatusBarMessage(t('extension.synthesizeComplete', files.length, totalCharacters), 5000);
   } catch (error) {
     if (error instanceof vscode.CancellationError) {
       return;
     }
     await handleError(error, secretManager);
-  }
-}
-
-async function confirmRoleAssignments(
-  assignments: readonly RoleAssignment[],
-  totalCharacters: number,
-  dirOverrides: Readonly<Record<string, string>>,
-  persistCharacterVoice: (speaker: string, voiceId: string) => Promise<void>
-): Promise<readonly RoleAssignment[] | undefined> {
-  let current = [...assignments];
-
-  for (; ;) {
-    const items: vscode.QuickPickItem[] = [
-      {
-        label: t('extension.startSynthesis'),
-        description: t('extension.roleSummary', current.length, totalCharacters),
-        alwaysShow: true
-      },
-      ...current.map(assignment => ({
-        label: assignment.speaker,
-        description: t('extension.voiceIdLabel', assignment.voiceId, assignment.speaker in dirOverrides ? t('extension.dirConfigLabel') : ''),
-        detail: t('extension.voiceTypeLabel', ROLE_VOICE_LABELS[assignment.voice])
-      }))
-    ];
-
-    const picked = await vscode.window.showQuickPick(items, {
-      title: t('extension.confirmRolesTitle'),
-      placeHolder: t('extension.confirmRolesPlaceholder'),
-      ignoreFocusOut: true
-    });
-    if (!picked) {
-      return undefined;
-    }
-
-    const index = items.indexOf(picked);
-    if (index <= 0) {
-      return current;
-    }
-
-    const target = current[index - 1];
-    const voiceId = await vscode.window.showInputBox({
-      title: t('extension.modifyVoiceTitle', target.speaker),
-      prompt: t('extension.modifyVoicePrompt'),
-      value: target.voiceId,
-      ignoreFocusOut: true,
-      validateInput: value => value.trim().length === 0 ? t('extension.voiceIdEmpty') : undefined
-    });
-    if (!voiceId) {
-      continue;
-    }
-
-    const trimmed = voiceId.trim();
-    current = current.map((assignment, assignmentIndex) =>
-      assignmentIndex === index - 1 ? { ...assignment, voiceId: trimmed } : assignment
-    );
-    if (target.speaker !== NARRATOR_NAME) {
-      await persistCharacterVoice(target.speaker, trimmed);
-    }
   }
 }
 
