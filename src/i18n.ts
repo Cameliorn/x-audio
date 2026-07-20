@@ -25,6 +25,7 @@ const zhCn: MessageBundle = {
     'player.stopInfo': '播放已停止。',
     'player.openFailed': '无法打开外部播放器页面。',
     'player.noBrowser': '无法打开外部播放器页面。请确认系统已安装 Safari、Chrome、Edge 或其他浏览器。',
+    'player.noActivePlayback': '当前没有活跃的播放，请先朗读文本。',
 
     // errors
     'errors.missingApiKey': '尚未设置 MiniMax 密钥。请先运行“MiniMax 文字转语音：设置密钥”。',
@@ -77,6 +78,11 @@ const zhCn: MessageBundle = {
     'extension.roleAnalysisConfigured': '角色分析：{0} @ {1}',
     'extension.setSoundEffectsDirTitle': '选择音效素材库文件夹',
     'extension.soundEffectsDirSet': '音效素材库已设置为：{0}',
+    'extension.sceneAnalysisFailed': '场景氛围分析未成功，本次不使用背景音效。',
+    'extension.previewVoiceTitle': '试听音色「{0}」',
+    'extension.previewVoiceProgress': '正在生成试听片段',
+    'extension.previewVoiceConfirm': '$(check) 确认修改',
+    'extension.previewVoiceTest': '$(unmute) 试听此音色',
 
     // secretManager
     'secretManager.setKeyTitle': '设置 MiniMax 密钥',
@@ -107,8 +113,8 @@ const zhCn: MessageBundle = {
     'multiRoleTts.noSegments': '没有可合成的文本片段。',
 
     // voiceConfigFile
-    'voiceConfig.invalidJson': '语音配置文件 {0} 不是有效的 JSON，已忽略。',
-    'voiceConfig.invalidFormat': '语音配置文件 {0} 格式不正确，应为 JSON 对象。'
+    'voiceConfig.invalidJson': '语音配置文件 {0} 不是有效的 JSON，已忽略。（路径：{1}）',
+    'voiceConfig.invalidFormat': '语音配置文件 {0} 格式不正确，应为 JSON 对象。（路径：{1}）'
 };
 
 const en: MessageBundle = {
@@ -131,6 +137,7 @@ const en: MessageBundle = {
     'player.stopInfo': 'External player is open. Use the player window to stop playback.',
     'player.openFailed': 'Failed to open external player page.',
     'player.noBrowser': 'Failed to open external player page. Please make sure Safari, Chrome, Edge, or another browser is installed.',
+    'player.noActivePlayback': 'No active playback. Please speak some text first.',
 
     'errors.missingApiKey': 'MiniMax API key is not set. Run "MiniMax TTS: Set API Key" first.',
     'errors.unknown': 'An unknown MiniMax TTS error occurred.',
@@ -179,6 +186,11 @@ const en: MessageBundle = {
     'extension.roleAnalysisConfigured': 'Role analysis: {0} @ {1}',
     'extension.setSoundEffectsDirTitle': 'Select Sound Effects Library Folder',
     'extension.soundEffectsDirSet': 'Sound effects library set to: {0}',
+    'extension.sceneAnalysisFailed': 'Scene analysis did not succeed; no background sound effect will be used this time.',
+    'extension.previewVoiceTitle': 'Preview voice "{0}"',
+    'extension.previewVoiceProgress': 'Generating preview clip',
+    'extension.previewVoiceConfirm': '$(check) Confirm',
+    'extension.previewVoiceTest': '$(unmute) Preview this voice',
 
     'secretManager.setKeyTitle': 'Set MiniMax API Key',
     'secretManager.setKeyPrompt': 'Paste your MiniMax API key. For Audio Subscription, use the API Platform key from "Account > API Keys". For Token Plan/Credits, use the Subscription Key from "Billing > Token Plan".',
@@ -204,8 +216,8 @@ const en: MessageBundle = {
 
     'multiRoleTts.noSegments': 'No text segments to synthesize.',
 
-    'voiceConfig.invalidJson': 'Voice config file {0} is not valid JSON and was ignored.',
-    'voiceConfig.invalidFormat': 'Voice config file {0} has an invalid format; expected a JSON object.'
+    'voiceConfig.invalidJson': 'Voice config file {0} is not valid JSON and was ignored. (Path: {1})',
+    'voiceConfig.invalidFormat': 'Voice config file {0} has an invalid format; expected a JSON object. (Path: {1})'
 };
 
 const bundles: Readonly<Record<string, MessageBundle>> = {

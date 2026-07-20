@@ -3,7 +3,7 @@
     "minimaxTts.commands.category": "MiniMax TTS",
     "minimaxTts.commands.speakSelection.title": "Speak Selected Text",
     "minimaxTts.commands.speakInput.title": "Speak Input Text",
-    "minimaxTts.commands.speakDocumentWithRoles.title": "Speak Document with Character Voices",
+    "minimaxTts.commands.speakDocumentWithRoles.title": "Speak Selected Text with Character Voices",
     "minimaxTts.commands.setApiKey.title": "Set API Key",
     "minimaxTts.commands.pause.title": "Pause / Resume",
     "minimaxTts.commands.stop.title": "Stop",
@@ -31,6 +31,9 @@
     "minimaxTts.configuration.properties.extraRequestJson.description": "Advanced MiniMax T2A request parameters. Use for newly added or unexposed fields, e.g. timbre_weights. Core fields (model, text, stream, output_format, voice_setting, audio_setting) are preserved by the extension.",
     "minimaxTts.configuration.properties.cacheEnabled.description": "Whether to reuse cached audio for identical text and parameters.",
     "minimaxTts.configuration.properties.cacheMaxSizeMb.description": "Maximum audio cache size in MB. Set to 0 to disable size-based cleanup.",
+    "minimaxTts.configuration.properties.maxTextLength.description": "[Common] Maximum characters per TTS request. Exceeding this prompts the user to select shorter text.",
+    "minimaxTts.configuration.properties.requestTimeoutMs.description": "[Common] TTS request timeout in milliseconds. Increase for slower networks.",
+    "minimaxTts.configuration.properties.browserPath.description": "[Common] Browser executable path for the external player. Leave blank to auto-detect Chrome/Edge/Brave.",
     "minimaxTts.languageModelTools.speakText.displayName": "Speak Text",
     "minimaxTts.languageModelTools.speakText.modelDescription": "Use MiniMax TTS to convert the provided text to speech and play it in VS Code. Only use when the user explicitly requests speaking, reading aloud, playing, narrating, or text-to-speech. This tool consumes MiniMax quota or account balance and will play audio in the user's editor; do not use for general explanations or summaries.",
     "minimaxTts.languageModelTools.speakText.userDescription": "Speak text using MiniMax TTS.",
@@ -39,7 +42,8 @@
     "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "Optional MiniMax speech model.",
     "minimaxTts.commands.configureRoleAnalysis.title": "Configure Role Analysis",
     "minimaxTts.commands.setSoundEffectsDir.title": "Set Sound Effects Library Folder",
-    "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "OpenAI-compatible API endpoint for role analysis, e.g. https://api.deepseek.com.",
-    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "Model name for the OpenAI-compatible API, e.g. deepseek-chat.",
-    "minimaxTts.configuration.properties.soundEffectsDir.description": "Background sound effects library directory. Subdirectories serve as categories. During character-voiced playback, DeepSeek automatically analyzes the text scene and matches a sound effect from the corresponding category."
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "[Multi-role] OpenAI-compatible API endpoint for role analysis, e.g. https://api.deepseek.com. Used to analyze characters and dialogue in text for multi-role playback.",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "[Multi-role] Model name for role analysis, e.g. deepseek-chat.",
+    "minimaxTts.configuration.properties.roleAnalysisCustomPrompt.description": "[Multi-role] Custom role analysis prompt. Replaces the entire default prompt when set. Supports placeholders: {{text}} (text chunk), {{knownCharacters}} (known characters JSON), {{strictReminder}} (retry reminder), {{emotions}} (emotion list), {{toneTags}} (tone tag list), {{unknownSpeaker}} (unknown speaker name).",
+    "minimaxTts.configuration.properties.soundEffectsDir.description": "[Multi-role] Background sound effects library directory. Subdirectories serve as scene categories. During multi-role playback, the text scene is automatically analyzed and matched to the corresponding category."
 }

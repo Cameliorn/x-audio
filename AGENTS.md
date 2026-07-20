@@ -11,19 +11,25 @@
 ## 架构
 
 ```
-extension.ts          — 入口（activate/deactivate），注册命令与 LM tool
-  ├── config.ts        — VS Code 设置（`minimaxTts.*`）、默认值、规范化
-  ├── secretManager.ts — SecretStorage 中的 API 密钥（vscode.SecretStorage）
-  ├── minimaxClient.ts — MiniMax TTS API HTTP 客户端（基于 fetch）
-  ├── ttsService.ts    — 编排合成流程 + 文件缓存
-  ├── roleAnalyzer.ts  — 使用 Copilot 语言模型（vscode.lm）分析小说角色与对白
+extension.ts            — 入口（activate/deactivate），注册命令与 LM tool
+  ├── config.ts          — VS Code 设置（`minimaxTts.*`）、默认值、规范化
+  ├── secretManager.ts   — SecretStorage 中的 API 密钥（vscode.SecretStorage）
+  ├── minimaxClient.ts   — MiniMax TTS API HTTP 客户端（基于 fetch）
+  ├── ttsService.ts      — 编排合成流程 + 文件缓存
+  ├── roleAnalysisClient.ts — OpenAI 兼容 API 客户端（DeepSeek 等），用于角色分析
+  ├── roleAnalyzer.ts    — 使用 Copilot 语言模型（vscode.lm）或外部 API 分析小说角色与对白
   ├── roleVoiceMapper.ts — 角色 → 音色 ID 映射（workspaceState 持久化角色覆盖）
+  ├── roleConfirmation.ts — 角色确认 QuickPick 交互界面
   ├── multiRoleTtsService.ts — 分角色多段合成编排
-  ├── speakTextTool.ts — vscode.LanguageModelTool 实现
+  ├── sceneSfx.ts        — 场景音效匹配与选择
+  ├── voiceConfigFile.ts — `.ttsvoices.json` 配置文件读写
+  ├── speakTextTool.ts   — vscode.LanguageModelTool 实现
   ├── externalAudioPlayer.ts — 外部 Chromium 浏览器音频播放
-  ├── apiKey.ts        — JWT/API 密钥规范化与检测
-  ├── errors.ts        — 自定义错误类
-  └── types.ts         — 类型重导出 + MiniMaxSynthesizer 接口
+  ├── playerPage.ts      — 播放器 Webview HTML 页面生成
+  ├── i18n.ts            — 国际化消息定义（简体中文）
+  ├── apiKey.ts          — JWT/API 密钥规范化与检测
+  ├── errors.ts          — 自定义错误类
+  └── types.ts           — 类型重导出 + MiniMaxSynthesizer 接口
 ```
 
 ## 关键约定

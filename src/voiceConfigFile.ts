@@ -65,12 +65,12 @@ async function tryReadVoiceConfig(fileUri: vscode.Uri): Promise<DirectoryVoiceCo
     try {
         parsed = JSON.parse(Buffer.from(raw).toString('utf8'));
     } catch {
-        vscode.window.showWarningMessage(t('voiceConfig.invalidJson', VOICE_CONFIG_FILE_NAME));
+        vscode.window.showWarningMessage(t('voiceConfig.invalidJson', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
         return undefined;
     }
 
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        vscode.window.showWarningMessage(t('voiceConfig.invalidFormat', VOICE_CONFIG_FILE_NAME));
+        vscode.window.showWarningMessage(t('voiceConfig.invalidFormat', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
         return undefined;
     }
 

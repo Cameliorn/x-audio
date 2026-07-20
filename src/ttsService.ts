@@ -66,33 +66,41 @@ export class TtsService {
       vol: request.vol,
       emotion: request.emotion
     });
-    const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${config.format}`);
 
-    if (config.cacheEnabled && await fileExists(fileUri)) {
-      await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
-      return {
-        uri: fileUri,
-        format: config.format,
-        cacheHit: true,
-        characters: text.length
-      };
-    }
+    if (config.cacheEnabled) {
+      const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${config.format}`);
 
-    const inFlight = this.inFlight.get(cacheKey);
-    if (inFlight) {
-      return inFlight;
-    }
+      if (await fileExists(fileUri)) {
+        await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
+        return {
+          uri: fileUri,
+          format: config.format,
+          cacheHit: true,
+          characters: text.length
+        };
+      }
 
-    const synthesis = this.synthesizeUncachedToFile(request, text, config, cacheRoot, fileUri, token);
-    this.inFlight.set(cacheKey, synthesis);
+      const inFlight = this.inFlight.get(cacheKey);
+      if (inFlight) {
+        return inFlight;
+      }
 
-    try {
-      return await synthesis;
-    } finally {
-      if (this.inFlight.get(cacheKey) === synthesis) {
-        this.inFlight.delete(cacheKey);
+      const synthesis = this.synthesizeUncachedToFile(request, text, config, cacheRoot, fileUri, token);
+      this.inFlight.set(cacheKey, synthesis);
+
+      try {
+        return await synthesis;
+      } finally {
+        if (this.inFlight.get(cacheKey) === synthesis) {
+          this.inFlight.delete(cacheKey);
+        }
       }
     }
+
+    // 缓存关闭时使用临时文件，避免磁盘堆积
+    const tempUri = vscode.Uri.joinPath(cacheRoot, `_temp.${config.format}`);
+    await deleteFileIfExists(tempUri);
+    return this.synthesizeUncachedToFile(request, text, config, cacheRoot, tempUri, token);
   }
 
   private async synthesizeUncachedToFile(
@@ -119,7 +127,9 @@ export class TtsService {
     }, token);
 
     await vscode.workspace.fs.writeFile(fileUri, result.audio);
-    await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
+    if (config.cacheEnabled) {
+      await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
+    }
 
     return {
       uri: fileUri,
@@ -174,6 +184,14 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+async function deleteFileIfExists(uri: vscode.Uri): Promise<void> {
+  try {
+    await vscode.workspace.fs.delete(uri);
+  } catch {
+    // 文件不存在或无法删除，忽略
   }
 }
 

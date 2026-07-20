@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('minimaxTts.speakSelection', () => speakSelection(speak, secretManager)),
     vscode.commands.registerCommand('minimaxTts.speakInput', () => speakInput(speak, secretManager)),
-    vscode.commands.registerCommand('minimaxTts.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, multiRoleTtsService)),
+    vscode.commands.registerCommand('minimaxTts.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, ttsService, multiRoleTtsService)),
     vscode.commands.registerCommand('minimaxTts.setApiKey', () => secretManager.promptAndStoreApiKey()),
     vscode.commands.registerCommand('minimaxTts.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
     vscode.commands.registerCommand('minimaxTts.pause', () => {
@@ -103,6 +103,7 @@ async function speakInput(speak: SpeakExecutor, secretManager: SecretManager): P
 async function speakDocumentWithRoles(
   context: vscode.ExtensionContext,
   secretManager: SecretManager,
+  ttsService: TtsService,
   multiRoleTtsService: MultiRoleTtsService
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor;
@@ -134,7 +135,7 @@ async function speakDocumentWithRoles(
       cancellable: true
     }, async (progress, token) => analyzeStoryRoles(text, roleAnalysisClient, token, roleProgress =>
       progress.report({ message: t('extension.roleAnalysisChunk', roleProgress.completedChunks, roleProgress.totalChunks) })
-    ));
+      , roleAnalysisConfig.customPrompt));
   } catch (error) {
     await handleError(error, secretManager);
     return;
@@ -153,6 +154,7 @@ async function speakDocumentWithRoles(
       }
     } catch {
       // 场景分析失败不影响主流程，沿用已有的音效设置
+      vscode.window.showInformationMessage(t('extension.sceneAnalysisFailed'));
     }
   }
 
@@ -169,6 +171,13 @@ async function speakDocumentWithRoles(
   const confirmed = await confirmRoleAssignments(assignments, totalCharacters, dirCharOverrides, async (speaker, voiceId) => {
     const latest = context.workspaceState.get<Record<string, string>>(CHARACTER_VOICE_STATE_KEY, {});
     await context.workspaceState.update(CHARACTER_VOICE_STATE_KEY, { ...latest, [speaker]: voiceId });
+  }, async (voiceId) => {
+    const previewRequest = {
+      text: '试听片段，测试当前所选音色的朗读效果。',
+      voiceId
+    };
+    const file = await ttsService.synthesizeToFile(previewRequest, new vscode.CancellationTokenSource().token);
+    await audioPlayer?.play(file, previewRequest.text);
   });
   if (!confirmed) {
     return;

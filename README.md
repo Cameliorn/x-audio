@@ -82,6 +82,8 @@
 | `vol` | 音量倍率（0.1~10） | `1` |
 | `roleVoices` | 角色类型默认音色 | — |
 | `soundEffectsDir` | 音效素材库目录 | — |
+| `roleAnalysisOpenaiEndpoint` | 角色分析 API 地址 | `https://api.deepseek.com` |
+| `roleAnalysisOpenaiModel` | 角色分析模型 | `deepseek-chat` |
 | `cacheEnabled` | 启用音频缓存 | `true` |
 
 ## 要求

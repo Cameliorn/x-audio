@@ -6,6 +6,7 @@ import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
+import { getMiniMaxConfig } from './config';
 import { t } from './i18n';
 import { getAudioMime, getAudioMimeFromPath, getPlayerPage } from './playerPage';
 import { TtsAudioFile, fileExists } from './ttsService';
@@ -17,43 +18,100 @@ interface ChromiumApp {
   readonly executablePaths: readonly string[];
 }
 
-const CHROMIUM_APPS: readonly ChromiumApp[] = [
-  {
-    name: 'Google Chrome',
-    executablePaths: [
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      `${process.env.HOME ?? ''}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
-    ]
-  },
-  {
-    name: 'Microsoft Edge',
-    executablePaths: [
-      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-      `${process.env.HOME ?? ''}/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge`
-    ]
-  },
-  {
-    name: 'Brave Browser',
-    executablePaths: [
-      '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
-      `${process.env.HOME ?? ''}/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`
-    ]
-  },
-  {
-    name: 'Chromium',
-    executablePaths: [
-      '/Applications/Chromium.app/Contents/MacOS/Chromium',
-      `${process.env.HOME ?? ''}/Applications/Chromium.app/Contents/MacOS/Chromium`
-    ]
-  },
-  {
-    name: 'Vivaldi',
-    executablePaths: [
-      '/Applications/Vivaldi.app/Contents/MacOS/Vivaldi',
-      `${process.env.HOME ?? ''}/Applications/Vivaldi.app/Contents/MacOS/Vivaldi`
-    ]
+function getChromiumApps(): ChromiumApp[] {
+  const platform = process.platform;
+
+  if (platform === 'darwin') {
+    return [
+      {
+        name: 'Google Chrome',
+        executablePaths: [
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+          `${process.env.HOME ?? ''}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+        ]
+      },
+      {
+        name: 'Microsoft Edge',
+        executablePaths: [
+          '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+          `${process.env.HOME ?? ''}/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge`
+        ]
+      },
+      {
+        name: 'Brave Browser',
+        executablePaths: [
+          '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
+          `${process.env.HOME ?? ''}/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`
+        ]
+      },
+      {
+        name: 'Chromium',
+        executablePaths: [
+          '/Applications/Chromium.app/Contents/MacOS/Chromium',
+          `${process.env.HOME ?? ''}/Applications/Chromium.app/Contents/MacOS/Chromium`
+        ]
+      },
+      {
+        name: 'Vivaldi',
+        executablePaths: [
+          '/Applications/Vivaldi.app/Contents/MacOS/Vivaldi',
+          `${process.env.HOME ?? ''}/Applications/Vivaldi.app/Contents/MacOS/Vivaldi`
+        ]
+      }
+    ];
   }
-];
+
+  if (platform === 'win32') {
+    const programFiles = process.env['ProgramFiles'] ?? 'C:\\Program Files';
+    const programFilesX86 = process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)';
+    const localAppData = process.env['LOCALAPPDATA'] ?? '';
+
+    return [
+      {
+        name: 'Google Chrome',
+        executablePaths: [
+          path.join(programFiles, 'Google\\Chrome\\Application\\chrome.exe'),
+          path.join(programFilesX86, 'Google\\Chrome\\Application\\chrome.exe'),
+          path.join(localAppData, 'Google\\Chrome\\Application\\chrome.exe')
+        ]
+      },
+      {
+        name: 'Microsoft Edge',
+        executablePaths: [
+          path.join(programFiles, 'Microsoft\\Edge\\Application\\msedge.exe'),
+          path.join(programFilesX86, 'Microsoft\\Edge\\Application\\msedge.exe')
+        ]
+      },
+      {
+        name: 'Brave Browser',
+        executablePaths: [
+          path.join(programFiles, 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'),
+          path.join(programFilesX86, 'BraveSoftware\\Brave-Browser\\Application\\brave.exe')
+        ]
+      }
+    ];
+  }
+
+  // linux
+  return [
+    {
+      name: 'Google Chrome',
+      executablePaths: ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/opt/google/chrome/chrome', '/snap/bin/chromium']
+    },
+    {
+      name: 'Microsoft Edge',
+      executablePaths: ['/usr/bin/microsoft-edge', '/opt/microsoft/msedge/msedge']
+    },
+    {
+      name: 'Chromium',
+      executablePaths: ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/snap/bin/chromium']
+    },
+    {
+      name: 'Brave Browser',
+      executablePaths: ['/usr/bin/brave-browser', '/opt/brave.com/brave/brave']
+    }
+  ];
+}
 
 export class AudioPlayerPanel {
   private readonly browserProfileRoot: vscode.Uri;
@@ -69,6 +127,7 @@ export class AudioPlayerPanel {
   private browserChild: ChildProcess | undefined;
   private pendingCommand: 'pause' | 'resume' | 'stop' | undefined;
   private isPaused = false;
+  private browserActive = false;
   private browserProfilePath = '';
 
   public constructor(
@@ -96,6 +155,7 @@ export class AudioPlayerPanel {
     this.version++;
     this.isPaused = false;
     this.pendingCommand = undefined;
+    this.browserActive = true;
     if (soundEffectFile !== undefined) {
       this.currentSfxPath = soundEffectFile && soundEffectFile.trim().length > 0 ? soundEffectFile : undefined;
     }
@@ -116,22 +176,28 @@ export class AudioPlayerPanel {
   }
 
   public pause(): void {
+    if (!this.browserActive) {
+      vscode.window.showInformationMessage(t('player.noActivePlayback'));
+      return;
+    }
+
     if (this.isPaused) {
-      this.pendingCommand = 'resume';
       this.isPaused = false;
+      this.pendingCommand = 'resume';
       vscode.window.showInformationMessage(t('player.resumeInfo'));
     } else {
-      this.pendingCommand = 'pause';
       this.isPaused = true;
+      this.pendingCommand = 'pause';
       vscode.window.showInformationMessage(t('player.pauseInfo'));
     }
   }
 
   public stop(): void {
+    this.isPaused = false;
+    this.browserActive = false;
     this.pendingCommand = 'stop';
     this.queue = [];
     this.currentSfxPath = undefined;
-    this.isPaused = false;
     if (this.browserChild && this.browserChild.exitCode === null) {
       try { this.browserChild.kill('SIGKILL'); } catch { /* 进程可能已退出 */ }
     }
@@ -321,9 +387,29 @@ async function launchBrowserWindow(
   existingProfilePath: string,
   onLaunch: (child: ChildProcess, profilePath: string) => void
 ): Promise<void> {
+  // 用户手动指定的浏览器路径
+  const config = getMiniMaxConfig();
+  if (config.browserPath.trim().length > 0) {
+    const result = await tryLaunchChromiumExecutable(config.browserPath.trim(), url, browserProfileRoot, existingProfilePath);
+    if (result) {
+      onLaunch(result.child, result.profilePath);
+      return;
+    }
+  }
+
   if (process.platform === 'darwin') {
     await launchOnMac(url, browserProfileRoot, existingProfilePath, onLaunch);
     return;
+  }
+
+  // Windows / Linux: 尝试直接启动 Chromium 浏览器
+  const apps = getChromiumApps();
+  for (const app of apps) {
+    const result = await tryLaunchChromiumApp(app, url, browserProfileRoot, existingProfilePath);
+    if (result) {
+      onLaunch(result.child, result.profilePath);
+      return;
+    }
   }
 
   if (await vscode.env.openExternal(vscode.Uri.parse(url))) {
@@ -339,7 +425,8 @@ async function launchOnMac(
   existingProfilePath: string,
   onLaunch: (child: ChildProcess, profilePath: string) => void
 ): Promise<void> {
-  for (const app of CHROMIUM_APPS) {
+  const apps = getChromiumApps();
+  for (const app of apps) {
     const result = await tryLaunchChromiumApp(app, url, browserProfileRoot, existingProfilePath);
     if (result) {
       onLaunch(result.child, result.profilePath);
@@ -347,7 +434,7 @@ async function launchOnMac(
     }
   }
 
-  for (const app of CHROMIUM_APPS) {
+  for (const app of apps) {
     if (await tryOpen(['-na', app.name, '--args', `--app=${url}`, '--window-size=420,190', '--autoplay-policy=no-user-gesture-required'])) {
       return;
     }
@@ -412,4 +499,36 @@ async function tryLaunchChromiumApp(
   }
 
   return undefined;
+}
+
+async function tryLaunchChromiumExecutable(
+  executablePath: string,
+  url: string,
+  browserProfileRoot: string,
+  existingProfilePath: string
+): Promise<LaunchResult | undefined> {
+  if (!await fileExists(vscode.Uri.file(executablePath))) {
+    return undefined;
+  }
+
+  const profilePath = existingProfilePath || path.join(browserProfileRoot, `custom-${Date.now()}`);
+  await vscode.workspace.fs.createDirectory(vscode.Uri.file(profilePath));
+
+  try {
+    const child = spawn(executablePath, [
+      `--user-data-dir=${profilePath}`,
+      `--app=${url}`,
+      '--window-size=420,190',
+      '--autoplay-policy=no-user-gesture-required',
+      '--no-first-run',
+      '--no-default-browser-check'
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+    child.unref();
+    return { child, profilePath };
+  } catch {
+    return undefined;
+  }
 }
