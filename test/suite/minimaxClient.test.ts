@@ -7,11 +7,10 @@ import { MiniMaxClient, buildMiniMaxTtsPayload, decodeHexAudio } from '../../src
 suite('MiniMaxClient', () => {
   test('builds a T2A request payload with overrides', () => {
     const payload = buildMiniMaxTtsPayload('hello', DEFAULT_CONFIG, {
-      model: ' speech-2.8-hd ',
       voiceId: ' custom-voice '
     });
 
-    assert.equal(payload.model, 'speech-2.8-hd');
+    assert.equal(payload.model, 'speech-2.8-turbo');
     assert.equal(payload.text, 'hello');
     assert.equal(payload.stream, false);
     assert.equal(payload.output_format, 'hex');
@@ -109,7 +108,7 @@ suite('MiniMaxClient', () => {
   });
 
   test('surfaces MiniMax API errors with trace id', async () => {
-    const client = new MiniMaxClient(async () => new Response(JSON.stringify({
+    const client = new MiniMaxClient(DEFAULT_CONFIG, async () => new Response(JSON.stringify({
       trace_id: 'trace-123',
       base_resp: {
         status_code: 1001,
@@ -121,11 +120,13 @@ suite('MiniMaxClient', () => {
 
     const tokenSource = new vscode.CancellationTokenSource();
     await assert.rejects(
-      client.synthesizeSpeech({
-        apiKey: 'key',
-        text: 'hello',
-        config: DEFAULT_CONFIG
-      }, tokenSource.token),
+      client.synthesizeSpeech(
+        'hello',
+        DEFAULT_CONFIG.voiceId,
+        undefined, undefined, undefined, undefined,
+        'key',
+        tokenSource.token
+      ),
       (error: unknown) => error instanceof MiniMaxApiError &&
         error.message.includes('invalid api key') &&
         error.message.includes('trace-123')
@@ -134,7 +135,7 @@ suite('MiniMaxClient', () => {
   });
 
   test('returns audio bytes for a successful response', async () => {
-    const client = new MiniMaxClient(async () => new Response(JSON.stringify({
+    const client = new MiniMaxClient(DEFAULT_CONFIG, async () => new Response(JSON.stringify({
       data: {
         audio: '6869',
         status: 2
@@ -149,11 +150,13 @@ suite('MiniMaxClient', () => {
     }));
 
     const tokenSource = new vscode.CancellationTokenSource();
-    const result = await client.synthesizeSpeech({
-      apiKey: 'key',
-      text: 'hello',
-      config: DEFAULT_CONFIG
-    }, tokenSource.token);
+    const result = await client.synthesizeSpeech(
+      'hello',
+      DEFAULT_CONFIG.voiceId,
+      undefined, undefined, undefined, undefined,
+      'key',
+      tokenSource.token
+    );
     tokenSource.dispose();
 
     assert.equal(Buffer.from(result.audio).toString('utf8'), 'hi');

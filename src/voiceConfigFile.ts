@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { t } from './i18n';
 import { ROLE_VOICE_TYPES, RoleVoiceType } from './roleAnalyzer';
+import { clampNumber, isRecord } from './utils';
 
 const VOICE_CONFIG_FILE_NAME = '.ttsvoices.json';
 const ROLE_VOICES_KEY = '@roleVoices';
@@ -69,7 +70,7 @@ async function tryReadVoiceConfig(fileUri: vscode.Uri): Promise<DirectoryVoiceCo
         return undefined;
     }
 
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    if (!isRecord(parsed)) {
         vscode.window.showWarningMessage(t('voiceConfig.invalidFormat', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
         return undefined;
     }
@@ -121,11 +122,11 @@ function parseConfigValue(value: unknown): ParsedConfigValue {
         return { voiceId: value.trim() };
     }
 
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-        const obj = value as Record<string, unknown>;
+    if (isRecord(value)) {
+        const obj = value;
         const voiceId = typeof obj.voiceId === 'string' && obj.voiceId.trim().length > 0 ? obj.voiceId.trim() : undefined;
-        const speed = typeof obj.speed === 'number' && Number.isFinite(obj.speed) ? Math.max(0.5, Math.min(2.0, obj.speed)) : undefined;
-        const pitch = typeof obj.pitch === 'number' && Number.isFinite(obj.pitch) ? Math.max(-12, Math.min(12, obj.pitch)) : undefined;
+        const speed = clampNumber(obj.speed, 0.5, 2.0);
+        const pitch = clampNumber(obj.pitch, -12, 12);
         const vol = typeof obj.vol === 'number' && Number.isFinite(obj.vol) && obj.vol > 0 && obj.vol <= 10 ? obj.vol : undefined;
         const hasParams = speed !== undefined || pitch !== undefined || vol !== undefined;
         return {

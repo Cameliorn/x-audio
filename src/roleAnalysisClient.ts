@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { RoleAnalysisConfig } from './config';
 import { UserVisibleError } from './errors';
 import { t } from './i18n';
+import { createAbortController } from './utils';
 
 export interface RoleAnalysisClient {
     sendRequest(prompt: string, token: vscode.CancellationToken): Promise<string>;
@@ -28,8 +29,7 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
         const endpoint = ensureChatCompletionsUrl(this.config.openaiEndpoint);
         const model = this.config.openaiModel;
 
-        const abortController = new AbortController();
-        const disposable = token.onCancellationRequested(() => abortController.abort());
+        const { controller, clear } = createAbortController(token);
 
         try {
             const response = await fetch(endpoint, {
@@ -46,7 +46,7 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
                     temperature: 0.3,
                     stream: false
                 }),
-                signal: abortController.signal
+                signal: controller.signal
             });
 
             if (!response.ok) {
@@ -72,7 +72,7 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
 
             throw error;
         } finally {
-            disposable.dispose();
+            clear();
         }
     }
 

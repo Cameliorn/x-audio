@@ -3,23 +3,22 @@ import * as path from 'path';
 import type { TtsAudioFile } from './ttsService';
 
 export interface PlayerPage {
-    readonly html: string;
-    readonly contentSecurityPolicy: string;
+  readonly html: string;
+  readonly contentSecurityPolicy: string;
 }
 
 export function getPlayerPage(pageGen: number): PlayerPage {
-    const nonce = crypto.randomBytes(16).toString('base64');
-    const escapedNonce = escapeAttribute(nonce);
+  const nonce = crypto.randomBytes(16).toString('base64');
 
-    return {
-        contentSecurityPolicy: `default-src 'none'; media-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`,
-        html: `<!DOCTYPE html>
+  return {
+    contentSecurityPolicy: `default-src 'none'; media-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';`,
+    html: `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MiniMax 播放器</title>
-  <style nonce="${escapedNonce}">
+  <style nonce="${nonce}">
     * {
       box-sizing: border-box;
     }
@@ -56,7 +55,7 @@ export function getPlayerPage(pageGen: number): PlayerPage {
     <audio id="audio" controls autoplay></audio>
     <audio id="sfx" loop style="display:none"></audio>
   </main>
-  <script nonce="${escapedNonce}">
+  <script nonce="${nonce}">
     (function () {
       try {
         window.resizeTo(420, 190);
@@ -158,47 +157,34 @@ export function getPlayerPage(pageGen: number): PlayerPage {
   </script>
 </body>
 </html>`
-    };
+  };
 }
 
 export function getAudioMime(format: TtsAudioFile['format']): string {
-    switch (format) {
-        case 'wav':
-            return 'audio/wav';
-        case 'flac':
-            return 'audio/flac';
-        case 'mp3':
-        default:
-            return 'audio/mpeg';
-    }
+  switch (format) {
+    case 'wav':
+      return 'audio/wav';
+    case 'flac':
+      return 'audio/flac';
+    case 'mp3':
+    default:
+      return 'audio/mpeg';
+  }
 }
 
 export function getAudioMimeFromPath(filePath: string): string {
-    const ext = path.extname(filePath).toLowerCase();
-    switch (ext) {
-        case '.wav':
-            return 'audio/wav';
-        case '.flac':
-            return 'audio/flac';
-        case '.ogg':
-            return 'audio/ogg';
-        case '.m4a':
-            return 'audio/mp4';
-        case '.mp3':
-        default:
-            return 'audio/mpeg';
-    }
-}
-
-function escapeHtml(value: string): string {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
-function escapeAttribute(value: string): string {
-    return escapeHtml(value).replace(/`/g, '&#96;');
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.wav':
+      return 'audio/wav';
+    case '.flac':
+      return 'audio/flac';
+    case '.ogg':
+      return 'audio/ogg';
+    case '.m4a':
+      return 'audio/mp4';
+    case '.mp3':
+    default:
+      return 'audio/mpeg';
+  }
 }

@@ -19,8 +19,8 @@ let audioPlayer: AudioPlayerPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const secretManager = new SecretManager(context.secrets);
-  const miniMaxClient = new MiniMaxClient();
-  const ttsService = new TtsService(context, secretManager, miniMaxClient);
+  const miniMaxClient = new MiniMaxClient(getMiniMaxConfig());
+  const ttsService = new TtsService(context.globalStorageUri, secretManager, miniMaxClient);
   const multiRoleTtsService = new MultiRoleTtsService(ttsService);
   const audioCacheRoot = vscode.Uri.joinPath(context.globalStorageUri, 'audio-cache');
 
@@ -152,8 +152,10 @@ async function speakDocumentWithRoles(
           sceneSfxFile = picked;
         }
       }
-    } catch {
+    } catch (err) {
       // 场景分析失败不影响主流程，沿用已有的音效设置
+      // eslint-disable-next-line no-console
+      console.warn('[MiniMax TTS] 场景分析失败：', err);
       vscode.window.showInformationMessage(t('extension.sceneAnalysisFailed'));
     }
   }

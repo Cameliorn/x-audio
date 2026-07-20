@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { ROLE_VOICE_TYPES, RoleVoiceType } from './roleAnalyzer';
+import { isRecord } from './utils';
 
 export type AudioFormat = 'mp3' | 'wav' | 'flac';
 export interface RoleAnalysisConfig {
@@ -258,17 +259,11 @@ function readSubtitleType(value: string | undefined, fallback: 'sentence' | 'wor
 }
 
 function readObject(value: unknown): Readonly<Record<string, unknown>> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as Readonly<Record<string, unknown>>;
+  return isRecord(value) ? value : {};
 }
 
 function readRoleVoices(value: unknown): Readonly<Record<RoleVoiceType, string>> {
-  const source = !value || typeof value !== 'object' || Array.isArray(value)
-    ? {}
-    : value as Record<string, unknown>;
+  const source = isRecord(value) ? value as Record<string, unknown> : {};
   const result = {} as Record<RoleVoiceType, string>;
 
   for (const type of ROLE_VOICE_TYPES) {

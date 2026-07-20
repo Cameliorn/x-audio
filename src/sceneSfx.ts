@@ -6,6 +6,9 @@ import { t } from './i18n';
 
 const SFX_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.ogg', '.m4a']);
 
+// 记录每个场景类型上一次选中的文件，避免连续两次选到同一个
+const lastPicked = new Map<string, string>();
+
 export async function pickSoundEffectForScene(sceneType: string): Promise<string | undefined> {
     const config = getMiniMaxConfig();
     const sfxDir = config.soundEffectsDir;
@@ -20,7 +23,14 @@ export async function pickSoundEffectForScene(sceneType: string): Promise<string
         if (audioFiles.length === 0) {
             return undefined;
         }
-        const picked = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+
+        // 多于 1 个文件时，避免连续两次选同一个
+        const previous = lastPicked.get(sceneType);
+        const candidates = previous && audioFiles.length > 1
+            ? audioFiles.filter(f => f !== previous)
+            : audioFiles;
+        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+        lastPicked.set(sceneType, picked);
         return path.join(categoryDir, picked);
     } catch {
         return undefined;

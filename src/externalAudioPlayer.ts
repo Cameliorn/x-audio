@@ -7,11 +7,27 @@ import * as path from 'path';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
 import { getMiniMaxConfig } from './config';
+import { fileExists } from './fileUtils';
 import { t } from './i18n';
 import { getAudioMime, getAudioMimeFromPath, getPlayerPage } from './playerPage';
-import { TtsAudioFile, fileExists } from './ttsService';
+import { TtsAudioFile } from './ttsService';
 
 const execFileAsync = promisify(execFile);
+
+function forceKillProcess(child: ChildProcess): void {
+  if (child.pid && child.exitCode === null) {
+    try {
+      // SIGKILL is not supported on Windows; SIGTERM + eventual fallback are fine
+      if (process.platform === 'win32') {
+        process.kill(child.pid, 'SIGTERM');
+      } else {
+        process.kill(child.pid, 'SIGKILL');
+      }
+    } catch {
+      // process may have already exited
+    }
+  }
+}
 
 interface ChromiumApp {
   readonly name: string;
@@ -164,7 +180,7 @@ export class AudioPlayerPanel {
 
     // 先杀掉上一次的浏览器进程，确保每次都是全新窗口
     if (this.browserChild && this.browserChild.exitCode === null) {
-      try { this.browserChild.kill('SIGKILL'); } catch { /* 进程可能已退出 */ }
+      forceKillProcess(this.browserChild);
     }
     this.browserChild = undefined;
 
@@ -199,7 +215,7 @@ export class AudioPlayerPanel {
     this.queue = [];
     this.currentSfxPath = undefined;
     if (this.browserChild && this.browserChild.exitCode === null) {
-      try { this.browserChild.kill('SIGKILL'); } catch { /* 进程可能已退出 */ }
+      forceKillProcess(this.browserChild);
     }
     this.browserChild = undefined;
     vscode.window.showInformationMessage(t('player.stopInfo'));
@@ -465,6 +481,22 @@ interface LaunchResult {
   readonly profilePath: string;
 }
 
+function spawnChromiumWindow(executablePath: string, url: string, profilePath: string): LaunchResult {
+  const child = spawn(executablePath, [
+    `--user-data-dir=${profilePath}`,
+    `--app=${url}`,
+    '--window-size=420,190',
+    '--autoplay-policy=no-user-gesture-required',
+    '--no-first-run',
+    '--no-default-browser-check'
+  ], {
+    detached: true,
+    stdio: 'ignore'
+  });
+  child.unref();
+  return { child, profilePath };
+}
+
 async function tryLaunchChromiumApp(
   app: ChromiumApp,
   url: string,
@@ -480,19 +512,7 @@ async function tryLaunchChromiumApp(
     await vscode.workspace.fs.createDirectory(vscode.Uri.file(profilePath));
 
     try {
-      const child = spawn(executablePath, [
-        `--user-data-dir=${profilePath}`,
-        `--app=${url}`,
-        '--window-size=420,190',
-        '--autoplay-policy=no-user-gesture-required',
-        '--no-first-run',
-        '--no-default-browser-check'
-      ], {
-        detached: true,
-        stdio: 'ignore'
-      });
-      child.unref();
-      return { child, profilePath };
+      return spawnChromiumWindow(executablePath, url, profilePath);
     } catch {
       // 继续尝试下一个浏览器
     }
@@ -515,19 +535,7 @@ async function tryLaunchChromiumExecutable(
   await vscode.workspace.fs.createDirectory(vscode.Uri.file(profilePath));
 
   try {
-    const child = spawn(executablePath, [
-      `--user-data-dir=${profilePath}`,
-      `--app=${url}`,
-      '--window-size=420,190',
-      '--autoplay-policy=no-user-gesture-required',
-      '--no-first-run',
-      '--no-default-browser-check'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-    child.unref();
-    return { child, profilePath };
+    return spawnChromiumWindow(executablePath, url, profilePath);
   } catch {
     return undefined;
   }

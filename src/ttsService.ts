@@ -2,13 +2,10 @@ import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { AudioFormat, MiniMaxTtsConfig, getMiniMaxConfig } from './config';
 import { UserVisibleError } from './errors';
+import { deleteFileIfExists, fileExists } from './fileUtils';
 import { t } from './i18n';
 import { ApiKeyProvider } from './secretManager';
-import { MiniMaxSynthesizer, TtsRequestOverrides } from './types';
-
-export interface ExtensionStorageContext {
-  readonly globalStorageUri: vscode.Uri;
-}
+import { TtsSynthesisResult, TtsSynthesizer } from './types';
 
 export interface SpeakRequest {
   readonly text: string;
@@ -17,7 +14,8 @@ export interface SpeakRequest {
   readonly speed?: number;
   readonly pitch?: number;
   readonly vol?: number;
-  readonly emotion?: string;
+  /** 提供者专属参数（如 MiniMax 的 emotion），由各 TtsSynthesizer 自行解读 */
+  readonly extraParams?: Record<string, unknown>;
 }
 
 export interface TtsAudioFile {
@@ -33,11 +31,15 @@ export type ConfigProvider = () => MiniMaxTtsConfig;
 
 export class TtsService {
   private readonly inFlight = new Map<string, Promise<TtsAudioFile>>();
+  private cacheAddCount = 0;
+
+  // 每新增 CLEANUP_INTERVAL 个缓存文件才触发一次清理扫描，避免每次都遍历目录
+  private static readonly CLEANUP_INTERVAL = 10;
 
   public constructor(
-    private readonly context: ExtensionStorageContext,
+    private readonly globalStorageUri: vscode.Uri,
     private readonly apiKeyProvider: ApiKeyProvider,
-    private readonly client: MiniMaxSynthesizer,
+    private readonly client: TtsSynthesizer,
     private readonly configProvider: ConfigProvider = getMiniMaxConfig
   ) { }
 
@@ -55,23 +57,23 @@ export class TtsService {
       throw new UserVisibleError(t('tts.textTooLong', config.maxTextLength));
     }
 
-    const cacheRoot = vscode.Uri.joinPath(this.context.globalStorageUri, 'audio-cache');
+    const cacheRoot = vscode.Uri.joinPath(this.globalStorageUri, 'audio-cache');
     await vscode.workspace.fs.createDirectory(cacheRoot);
 
-    const cacheKey = createCacheKey(text, config, {
-      voiceId: request.voiceId,
-      model: request.model,
-      speed: request.speed,
-      pitch: request.pitch,
-      vol: request.vol,
-      emotion: request.emotion
-    });
+    const cacheKey = createCacheKey(
+      text,
+      request.voiceId,
+      request.speed,
+      request.pitch,
+      request.vol,
+      request.extraParams,
+      this.client.configFingerprint()
+    );
 
     if (config.cacheEnabled) {
       const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${config.format}`);
 
       if (await fileExists(fileUri)) {
-        await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
         return {
           uri: fileUri,
           format: config.format,
@@ -112,23 +114,23 @@ export class TtsService {
     token: vscode.CancellationToken
   ): Promise<TtsAudioFile> {
     const apiKey = await this.apiKeyProvider.requireApiKey();
-    const result = await this.client.synthesizeSpeech({
-      apiKey,
+    const result: TtsSynthesisResult = await this.client.synthesizeSpeech(
       text,
-      config,
-      overrides: {
-        voiceId: request.voiceId,
-        model: request.model,
-        speed: request.speed,
-        pitch: request.pitch,
-        vol: request.vol,
-        emotion: request.emotion
-      }
-    }, token);
+      request.voiceId || config.voiceId,
+      request.speed,
+      request.pitch,
+      request.vol,
+      request.extraParams,
+      apiKey,
+      token
+    );
 
     await vscode.workspace.fs.writeFile(fileUri, result.audio);
     if (config.cacheEnabled) {
-      await tryCleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri);
+      this.cacheAddCount++;
+      if (this.cacheAddCount % TtsService.CLEANUP_INTERVAL === 0) {
+        try { await cleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, fileUri); } catch { /* 清理失败不阻塞 */ }
+      }
     }
 
     return {
@@ -144,69 +146,49 @@ export class TtsService {
 
 function createCacheKey(
   text: string,
-  config: MiniMaxTtsConfig,
-  overrides: TtsRequestOverrides
+  voiceId: string | undefined,
+  speed: number | undefined,
+  pitch: number | undefined,
+  vol: number | undefined,
+  extraParams: Record<string, unknown> | undefined,
+  providerFingerprint: string
 ): string {
-  const cacheIdentity = {
+  const identity = {
     text,
-    apiHost: config.apiHost,
-    model: overrides.model?.trim() || config.model,
-    voiceId: overrides.voiceId?.trim() || config.voiceId,
-    format: config.format,
-    sampleRate: config.sampleRate,
-    bitrate: config.bitrate,
-    channel: config.channel,
-    speed: overrides.speed ?? config.speed,
-    vol: overrides.vol ?? config.vol,
-    pitch: overrides.pitch ?? config.pitch,
-    emotion: overrides.emotion ?? null,
-    languageBoost: config.languageBoost,
-    pronunciationTone: config.pronunciationTone,
-    voiceModifyEnabled: config.voiceModifyEnabled,
-    voiceModifyPitch: config.voiceModifyPitch,
-    voiceModifyIntensity: config.voiceModifyIntensity,
-    voiceModifyTimbre: config.voiceModifyTimbre,
-    voiceModifySoundEffects: config.voiceModifySoundEffects,
-    subtitleEnable: config.subtitleEnable,
-    subtitleType: config.subtitleType,
-    extraRequestJson: config.extraRequestJson
+    voiceId,
+    speed,
+    pitch,
+    vol,
+    extraParams,
+    provider: providerFingerprint
   };
 
   return crypto
     .createHash('sha256')
-    .update(JSON.stringify(cacheIdentity))
+    .update(sortedStringify(identity))
     .digest('hex');
 }
 
-async function fileExists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
+/**
+ * JSON.stringify 但保证 key 按字母序排列，包括嵌套对象。
+ * 确保相同语义的配置始终产生相同的缓存键。
+ */
+function sortedStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
   }
-}
-
-async function deleteFileIfExists(uri: vscode.Uri): Promise<void> {
-  try {
-    await vscode.workspace.fs.delete(uri);
-  } catch {
-    // 文件不存在或无法删除，忽略
+  if (Array.isArray(value)) {
+    return `[${value.map(sortedStringify).join(',')}]`;
   }
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const pairs = keys.map(k => `${JSON.stringify(k)}:${sortedStringify((value as Record<string, unknown>)[k])}`);
+  return `{${pairs.join(',')}}`;
 }
 
 interface AudioCacheEntry {
   readonly uri: vscode.Uri;
   readonly size: number;
   readonly mtime: number;
-}
-
-async function tryCleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepUri: vscode.Uri): Promise<void> {
-  try {
-    await cleanupAudioCache(cacheRoot, maxSizeMb, keepUri);
-  } catch {
-    return;
-  }
 }
 
 async function cleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepUri: vscode.Uri): Promise<void> {
@@ -234,7 +216,8 @@ async function cleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepU
     totalBytes += stat.size;
   }
 
-  if (totalBytes <= maxBytes) {
+  // 滞后阈值：超过 120% 才清理，避免频繁扫描后立即清理
+  if (totalBytes <= maxBytes * 1.2) {
     return;
   }
 
@@ -257,4 +240,4 @@ async function cleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepU
   }
 }
 
-export { cleanupAudioCache, createCacheKey, fileExists };
+export { cleanupAudioCache, createCacheKey };

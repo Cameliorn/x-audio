@@ -3,6 +3,11 @@ import { t } from './i18n';
 import { NARRATOR_NAME, ROLE_VOICE_LABELS } from './roleAnalyzer';
 import { RoleAssignment } from './roleVoiceMapper';
 
+interface RoleQuickPickItem extends vscode.QuickPickItem {
+    readonly itemKind: 'action' | 'role';
+    readonly assignment?: RoleAssignment;
+}
+
 export async function confirmRoleAssignments(
     assignments: readonly RoleAssignment[],
     totalCharacters: number,
@@ -16,14 +21,17 @@ export async function confirmRoleAssignments(
         const quickPick = vscode.window.createQuickPick();
         let isProcessing = false;
 
-        function buildItems(): vscode.QuickPickItem[] {
+        function buildItems(): RoleQuickPickItem[] {
             return [
                 {
+                    itemKind: 'action',
                     label: t('extension.startSynthesis'),
                     description: t('extension.roleSummary', current.length, totalCharacters),
                     alwaysShow: true
                 },
                 ...current.map(assignment => ({
+                    itemKind: 'role' as const,
+                    assignment,
                     label: assignment.speaker,
                     description: t('extension.voiceIdLabel', assignment.voiceId, assignment.speaker in dirOverrides ? t('extension.dirConfigLabel') : ''),
                     detail: t('extension.voiceTypeLabel', ROLE_VOICE_LABELS[assignment.voice])
@@ -48,18 +56,12 @@ export async function confirmRoleAssignments(
                 return;
             }
 
-            const selected = quickPick.selectedItems[0];
+            const selected = quickPick.selectedItems[0] as RoleQuickPickItem | undefined;
             if (!selected) {
                 return;
             }
 
-            const index = quickPick.items.indexOf(selected);
-            if (index < 0) {
-                return;
-            }
-
-            // "开始合成语音" 被选中
-            if (index === 0) {
+            if (selected.itemKind === 'action') {
                 isProcessing = true;
                 quickPick.hide();
                 quickPick.dispose();
@@ -67,9 +69,12 @@ export async function confirmRoleAssignments(
                 return;
             }
 
-            // 角色被选中，进入音色修改流程
-            const targetIndex = index - 1;
-            const target = current[targetIndex];
+            const target = selected.assignment;
+            if (!target) {
+                isProcessing = false;
+                updateAndShow();
+                return;
+            }
             isProcessing = true;
 
             const voiceId = await vscode.window.showInputBox({
@@ -87,8 +92,8 @@ export async function confirmRoleAssignments(
             }
 
             const trimmed = voiceId.trim();
-            current = current.map((assignment, i) =>
-                i === targetIndex ? { ...assignment, voiceId: trimmed } : assignment
+            current = current.map(assignment =>
+                assignment.speaker === target.speaker ? { ...assignment, voiceId: trimmed } : assignment
             );
             if (target.speaker !== NARRATOR_NAME) {
                 await persistCharacterVoice(target.speaker, trimmed);

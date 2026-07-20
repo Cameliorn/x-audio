@@ -1,31 +1,94 @@
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { MiniMaxTtsConfig, normalizeApiHost } from './config';
 import { MiniMaxApiError, UserVisibleError } from './errors';
 import { t } from './i18n';
-
-export interface TtsRequestOverrides {
-  readonly model?: string;
-  readonly voiceId?: string;
-  readonly speed?: number;
-  readonly pitch?: number;
-  readonly vol?: number;
-  readonly emotion?: string;
-}
-
-export interface MiniMaxSynthesizeOptions {
-  readonly apiKey: string;
-  readonly text: string;
-  readonly config: MiniMaxTtsConfig;
-  readonly overrides?: TtsRequestOverrides;
-}
-
-export interface MiniMaxSynthesisResult {
-  readonly audio: Uint8Array;
-  readonly traceId?: string;
-  readonly extraInfo?: Record<string, unknown>;
-}
+import { TtsSynthesisResult, TtsSynthesizer } from './types';
+import { createAbortController } from './utils';
 
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
+
+export class MiniMaxClient implements TtsSynthesizer {
+  private readonly fingerprint: string;
+
+  public constructor(
+    private readonly config: MiniMaxTtsConfig,
+    private readonly fetchImpl: FetchLike = fetch
+  ) {
+    this.fingerprint = createMiniMaxFingerprint(config);
+  }
+
+  public configFingerprint(): string {
+    return this.fingerprint;
+  }
+
+  public async synthesizeSpeech(
+    text: string,
+    voiceId: string,
+    speed: number | undefined,
+    pitch: number | undefined,
+    vol: number | undefined,
+    extraParams: Readonly<Record<string, unknown>> | undefined,
+    apiKey: string,
+    token: vscode.CancellationToken
+  ): Promise<TtsSynthesisResult> {
+    if (token.isCancellationRequested) {
+      throw new UserVisibleError(t('minimax.requestCancelled'));
+    }
+
+    const emotion = typeof extraParams?.emotion === 'string' ? extraParams.emotion : undefined;
+    const payload = buildMiniMaxTtsPayload(text, this.config, { voiceId, speed, pitch, vol, emotion });
+
+    let timedOut = false;
+    const { controller, clear } = createAbortController(token, this.config.requestTimeoutMs, () => { timedOut = true; });
+
+    try {
+      const response = await this.fetchImpl(`${normalizeApiHost(this.config.apiHost)}/v1/t2a_v2`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      const bodyText = await response.text();
+      const body = parseMiniMaxResponse(bodyText, response.status);
+
+      if (!response.ok) {
+        throw toMiniMaxApiError(body, t('minimax.httpError', response.status));
+      }
+
+      const statusCode = body.base_resp?.status_code ?? 0;
+      if (statusCode !== 0) {
+        throw toMiniMaxApiError(body, t('minimax.requestFailed'));
+      }
+
+      if (!body.data?.audio) {
+        throw toMiniMaxApiError(body, t('minimax.noAudioData'));
+      }
+
+      return {
+        audio: decodeHexAudio(body.data.audio),
+        traceId: body.trace_id,
+        extraInfo: body.extra_info
+      };
+    } catch (error) {
+      if (timedOut) {
+        throw new UserVisibleError(t('minimax.timeout', this.config.requestTimeoutMs / 1000));
+      }
+
+      if (token.isCancellationRequested) {
+        throw new UserVisibleError(t('minimax.requestCancelled'));
+      }
+
+      throw error;
+    } finally {
+      clear();
+    }
+  }
+}
 
 interface MiniMaxBaseResponse {
   readonly status_code?: number;
@@ -45,21 +108,27 @@ interface MiniMaxTtsResponse {
 export function buildMiniMaxTtsPayload(
   text: string,
   config: MiniMaxTtsConfig,
-  overrides: TtsRequestOverrides = {}
+  params: {
+    voiceId?: string;
+    speed?: number;
+    pitch?: number;
+    vol?: number;
+    emotion?: string;
+  } = {}
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...config.extraRequestJson,
-    model: readOverride(overrides.model, config.model),
+    model: config.model,
     text,
     stream: false,
     language_boost: config.languageBoost,
     output_format: 'hex',
     voice_setting: {
-      voice_id: readOverride(overrides.voiceId, config.voiceId),
-      speed: readNumberOverride(overrides.speed, config.speed),
-      vol: readNumberOverride(overrides.vol, config.vol),
-      pitch: readNumberOverride(overrides.pitch, config.pitch),
-      ...(overrides.emotion ? { emotion: overrides.emotion } : {})
+      voice_id: coalesceString(params.voiceId, config.voiceId),
+      speed: coalesceNumber(params.speed, config.speed),
+      vol: coalesceNumber(params.vol, config.vol),
+      pitch: coalesceNumber(params.pitch, config.pitch),
+      ...(params.emotion ? { emotion: params.emotion } : {})
     },
     audio_setting: {
       sample_rate: config.sampleRate,
@@ -111,81 +180,44 @@ export function decodeHexAudio(hexAudio: string): Uint8Array {
   return Buffer.from(normalized, 'hex');
 }
 
-export class MiniMaxClient {
-  public constructor(private readonly fetchImpl: FetchLike = fetch) { }
-
-  public async synthesizeSpeech(
-    options: MiniMaxSynthesizeOptions,
-    token: vscode.CancellationToken
-  ): Promise<MiniMaxSynthesisResult> {
-    if (token.isCancellationRequested) {
-      throw new UserVisibleError(t('minimax.requestCancelled'));
-    }
-
-    const controller = new AbortController();
-    let timedOut = false;
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      controller.abort();
-    }, options.config.requestTimeoutMs);
-    const cancellationSubscription = token.onCancellationRequested(() => controller.abort());
-
-    try {
-      const response = await this.fetchImpl(`${normalizeApiHost(options.config.apiHost)}/v1/t2a_v2`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${options.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(buildMiniMaxTtsPayload(options.text, options.config, options.overrides)),
-        signal: controller.signal
-      });
-
-      const bodyText = await response.text();
-      const body = parseMiniMaxResponse(bodyText, response.status);
-
-      if (!response.ok) {
-        throw toMiniMaxApiError(body, t('minimax.httpError', response.status));
-      }
-
-      const statusCode = body.base_resp?.status_code ?? 0;
-      if (statusCode !== 0) {
-        throw toMiniMaxApiError(body, t('minimax.requestFailed'));
-      }
-
-      if (!body.data?.audio) {
-        throw toMiniMaxApiError(body, t('minimax.noAudioData'));
-      }
-
-      return {
-        audio: decodeHexAudio(body.data.audio),
-        traceId: body.trace_id,
-        extraInfo: body.extra_info
-      };
-    } catch (error) {
-      if (timedOut) {
-        throw new UserVisibleError(t('minimax.timeout', options.config.requestTimeoutMs / 1000));
-      }
-
-      if (token.isCancellationRequested) {
-        throw new UserVisibleError(t('minimax.requestCancelled'));
-      }
-
-      throw error;
-    } finally {
-      clearTimeout(timeout);
-      cancellationSubscription.dispose();
-    }
-  }
-}
-
-function readOverride(value: string | undefined, fallback: string): string {
+function coalesceString(value: string | undefined, fallback: string): string {
   const trimmed = value?.trim();
   return trimmed && trimmed.length > 0 ? trimmed : fallback;
 }
 
-function readNumberOverride(value: number | undefined, fallback: number): number {
+function coalesceNumber(value: number | undefined, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function createMiniMaxFingerprint(config: MiniMaxTtsConfig): string {
+  const identity = {
+    apiHost: config.apiHost,
+    model: config.model,
+    voiceId: config.voiceId,
+    roleVoices: config.roleVoices,
+    format: config.format,
+    sampleRate: config.sampleRate,
+    bitrate: config.bitrate,
+    channel: config.channel,
+    speed: config.speed,
+    vol: config.vol,
+    pitch: config.pitch,
+    languageBoost: config.languageBoost,
+    pronunciationTone: config.pronunciationTone,
+    voiceModifyEnabled: config.voiceModifyEnabled,
+    voiceModifyPitch: config.voiceModifyPitch,
+    voiceModifyIntensity: config.voiceModifyIntensity,
+    voiceModifyTimbre: config.voiceModifyTimbre,
+    voiceModifySoundEffects: config.voiceModifySoundEffects,
+    subtitleEnable: config.subtitleEnable,
+    subtitleType: config.subtitleType,
+    extraRequestJson: config.extraRequestJson
+  };
+
+  return crypto
+    .createHash('sha256')
+    .update(JSON.stringify(identity, Object.keys(identity).sort()))
+    .digest('hex');
 }
 
 function parseMiniMaxResponse(bodyText: string, httpStatus: number): MiniMaxTtsResponse {

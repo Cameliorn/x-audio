@@ -31,8 +31,15 @@ export class MultiRoleTtsService {
     const maxTextLength = this.configProvider().maxTextLength;
     const pieces: RoleSpeechSegment[] = [];
     for (const segment of segments) {
-      for (const text of splitTextIntoChunks(segment.text, maxTextLength)) {
-        pieces.push({ ...segment, text });
+      const chunks = splitTextIntoChunks(segment.text, maxTextLength);
+      for (let i = 0; i < chunks.length; i++) {
+        pieces.push({
+          ...segment,
+          text: chunks[i],
+          pauseBefore: i === 0 ? segment.pauseBefore : undefined,
+          transition: i === 0 ? segment.transition : undefined,
+          soundTags: i === 0 ? segment.soundTags : undefined,
+        });
       }
     }
 
@@ -50,7 +57,7 @@ export class MultiRoleTtsService {
         speed,
         pitch,
         vol,
-        emotion
+        extraParams: emotion ? { emotion } : undefined
       }, token);
       files.push(file);
       onProgress?.(index + 1, pieces.length, piece);

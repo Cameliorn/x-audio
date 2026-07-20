@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { RoleAnalysisClient } from './roleAnalysisClient';
+import { clampNumber } from './utils';
 
 export type RoleVoiceType = 'narrator' | 'male' | 'female' | 'girl' | 'boy' | 'child' | 'elderly';
 
@@ -183,8 +184,10 @@ interface PromptPlaceholders {
 }
 
 function replacePlaceholders(template: string, p: PromptPlaceholders): string {
+  // escape any {{…}} in user-supplied text to prevent placeholder injection
+  const escapeBraces = (s: string) => s.replace(/\{\{/g, '\\{\\{').replace(/\}\}/g, '\\}\\}');
   return template
-    .replace(/\{\{text\}\}/g, p.chunk)
+    .replace(/\{\{text\}\}/g, escapeBraces(p.chunk))
     .replace(/\{\{knownCharacters\}\}/g, p.knownJson)
     .replace(/\{\{strictReminder\}\}/g, p.strictReminder)
     .replace(/\{\{emotions\}\}/g, p.emotions)
@@ -268,17 +271,11 @@ function normalizeEmotion(value: unknown): StoryEmotion | undefined {
 }
 
 function normalizeSpeed(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.max(0.5, Math.min(2.0, value));
-  }
-  return undefined;
+  return clampNumber(value, 0.5, 2.0);
 }
 
 function normalizePitch(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.max(-12, Math.min(12, value));
-  }
-  return undefined;
+  return clampNumber(value, -12, 12);
 }
 
 function normalizeVol(value: unknown): number | undefined {
