@@ -12,8 +12,57 @@ export function createRoleAnalysisClient(
     config: RoleAnalysisConfig,
     secrets: vscode.SecretStorage
 ): RoleAnalysisClient {
+    if (config.provider === 'copilot') {
+        return new CopilotRoleAnalysisClient(config);
+    }
     return new OpenAIRoleAnalysisClient(config, secrets);
 }
+
+// ─── Copilot 内置模型 ────────────────────────────────────────
+
+class CopilotRoleAnalysisClient implements RoleAnalysisClient {
+    public constructor(
+        private readonly config: RoleAnalysisConfig
+    ) { }
+
+    public async sendRequest(
+        prompt: string,
+        token: vscode.CancellationToken
+    ): Promise<string> {
+        if (!this.config.copilotModelId) {
+            throw new UserVisibleError(t('roleAnalysis.copilotNotConfigured'));
+        }
+
+        const [model] = await vscode.lm.selectChatModels({ id: this.config.copilotModelId });
+        if (!model) {
+            throw new UserVisibleError(
+                t('roleAnalysis.copilotModelNotFound', this.config.copilotModelId)
+            );
+        }
+
+        const messages = [
+            vscode.LanguageModelChatMessage.User(prompt)
+        ];
+
+        const response = await model.sendRequest(messages, {}, token);
+
+        const parts: string[] = [];
+        for await (const chunk of response.stream) {
+            if (chunk instanceof vscode.LanguageModelTextPart) {
+                parts.push(chunk.value);
+            }
+        }
+
+        const content = parts.join('').trim();
+        if (content.length === 0) {
+            throw new UserVisibleError(t('roleAnalysis.emptyContent'));
+        }
+
+        return content;
+    }
+}
+
+// ─── OpenAI 兼容接口 ────────────────────────────────────────
 
 class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
     public constructor(

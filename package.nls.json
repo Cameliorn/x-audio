@@ -42,8 +42,12 @@
     "minimaxTts.languageModelTools.speakText.inputSchema.model.description": "Optional MiniMax speech model.",
     "minimaxTts.commands.configureRoleAnalysis.title": "Configure Role Analysis",
     "minimaxTts.commands.setSoundEffectsDir.title": "Set Sound Effects Library Folder",
-    "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "[Multi-role] OpenAI-compatible API endpoint for role analysis, e.g. https://api.deepseek.com. Used to analyze characters and dialogue in text for multi-role playback.",
-    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "[Multi-role] Model name for role analysis, e.g. deepseek-chat.",
+    "minimaxTts.configuration.properties.roleAnalysisProvider.description": "[Multi-role] AI source for role analysis. Copilot models use your VS Code Copilot configured models without extra API keys. OpenAI-compatible API requires your own key to connect to third-party services like DeepSeek.",
+    "minimaxTts.configuration.properties.roleAnalysisProvider.copilot": "Copilot Models",
+    "minimaxTts.configuration.properties.roleAnalysisProvider.openai": "OpenAI-compatible API",
+    "minimaxTts.configuration.properties.roleAnalysisCopilotModelId.description": "[Multi-role · Copilot] Full model ID of the selected model for role analysis. Use the \"Configure Role Analysis\" command for an easier selection experience.",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description": "[Multi-role · OpenAI] OpenAI-compatible API endpoint for role analysis, e.g. https://api.deepseek.com. Used to analyze characters and dialogue in text for multi-role playback.",
+    "minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description": "[Multi-role · OpenAI] Model name for role analysis, e.g. deepseek-chat.",
     "minimaxTts.configuration.properties.roleAnalysisCustomPrompt.description": "[Multi-role] Custom role analysis prompt. Replaces the entire default prompt when set. Supports placeholders: {{text}} (text chunk), {{knownCharacters}} (known characters JSON), {{strictReminder}} (retry reminder), {{emotions}} (emotion list), {{toneTags}} (tone tag list), {{unknownSpeaker}} (unknown speaker name).",
     "minimaxTts.configuration.properties.soundEffectsDir.description": "[Multi-role] Background sound effects library directory. Subdirectories serve as scene categories. During multi-role playback, the text scene is automatically analyzed and matched to the corresponding category."
 }

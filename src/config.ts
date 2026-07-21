@@ -5,7 +5,11 @@ import { ROLE_VOICE_TYPES, RoleVoiceType } from './roleAnalyzer';
 import { isRecord } from './utils';
 
 export type AudioFormat = 'mp3' | 'wav' | 'flac';
+export type RoleAnalysisProvider = 'copilot' | 'openai';
+
 export interface RoleAnalysisConfig {
+  readonly provider: RoleAnalysisProvider;
+  readonly copilotModelId: string;
   readonly openaiEndpoint: string;
   readonly openaiModel: string;
   readonly customPrompt: string;
@@ -81,6 +85,8 @@ export const DEFAULT_CONFIG: MiniMaxTtsConfig = {
   maxTextLength: 10000,
   requestTimeoutMs: 60000,
   roleAnalysis: {
+    provider: 'openai' as RoleAnalysisProvider,
+    copilotModelId: '',
     openaiEndpoint: 'https://api.deepseek.com',
     openaiModel: 'deepseek-chat',
     customPrompt: `你是一名资深有声书导演，兼具作家的文学鉴赏力和导演的表演指导能力。请通读下面的小说文本，从整体上把握叙事节奏、场景氛围和人物性格后，将其拆分为连续的朗读片段。
@@ -151,6 +157,15 @@ export function getMiniMaxConfig(): MiniMaxTtsConfig {
 
 export function getRoleAnalysisConfig(settings: vscode.WorkspaceConfiguration): RoleAnalysisConfig {
   return {
+    provider: readRoleAnalysisProvider(
+      settings.get<string>('roleAnalysis.provider'),
+      DEFAULT_CONFIG.roleAnalysis.provider
+    ),
+    copilotModelId: readString(
+      settings,
+      'roleAnalysis.copilotModelId',
+      DEFAULT_CONFIG.roleAnalysis.copilotModelId
+    ),
     openaiEndpoint: readNonEmptyString(
       settings.get<string>('roleAnalysis.openaiEndpoint'),
       DEFAULT_CONFIG.roleAnalysis.openaiEndpoint
@@ -164,6 +179,13 @@ export function getRoleAnalysisConfig(settings: vscode.WorkspaceConfiguration): 
       DEFAULT_CONFIG.roleAnalysis.customPrompt
     )
   };
+}
+
+function readRoleAnalysisProvider(value: string | undefined, fallback: RoleAnalysisProvider): RoleAnalysisProvider {
+  if (value === 'copilot' || value === 'openai') {
+    return value;
+  }
+  return fallback;
 }
 
 export function normalizeApiHost(apiHost: string): string {

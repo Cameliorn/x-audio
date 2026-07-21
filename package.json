@@ -2,7 +2,7 @@
   "name": "minimax-tts",
   "displayName": "MiniMax TTS",
   "description": "%minimaxTts.description%",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "Cameliorn",
   "icon": "icon.png",
   "license": "MIT",
@@ -377,28 +377,50 @@
           },
           "description": "%minimaxTts.configuration.properties.roleVoices.description%"
         },
-        "minimaxTts.roleAnalysis.openaiEndpoint": {
+        "minimaxTts.roleAnalysis.provider": {
+          "order": 70,
+          "type": "string",
+          "default": "openai",
+          "enum": [
+            "copilot",
+            "openai"
+          ],
+          "enumDescriptions": [
+            "%minimaxTts.configuration.properties.roleAnalysisProvider.copilot%",
+            "%minimaxTts.configuration.properties.roleAnalysisProvider.openai%"
+          ],
+          "scope": "application",
+          "description": "%minimaxTts.configuration.properties.roleAnalysisProvider.description%"
+        },
+        "minimaxTts.roleAnalysis.copilotModelId": {
           "order": 71,
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "%minimaxTts.configuration.properties.roleAnalysisCopilotModelId.description%"
+        },
+        "minimaxTts.roleAnalysis.openaiEndpoint": {
+          "order": 72,
           "type": "string",
           "default": "https://api.deepseek.com",
           "scope": "application",
           "description": "%minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description%"
         },
         "minimaxTts.roleAnalysis.openaiModel": {
-          "order": 72,
+          "order": 73,
           "type": "string",
           "default": "deepseek-chat",
           "scope": "application",
           "description": "%minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description%"
         },
         "minimaxTts.roleAnalysis.customPrompt": {
-          "order": 73,
+          "order": 74,
           "type": "string",
           "default": "",
           "description": "%minimaxTts.configuration.properties.roleAnalysisCustomPrompt.description%"
         },
         "minimaxTts.soundEffectsDir": {
-          "order": 74,
+          "order": 75,
           "type": "string",
           "default": "",
           "description": "%minimaxTts.configuration.properties.soundEffectsDir.description%"

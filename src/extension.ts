@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getMiniMaxConfig, getRoleAnalysisConfig } from './config';
+import { RoleAnalysisProvider, getMiniMaxConfig, getRoleAnalysisConfig } from './config';
 import { MissingApiKeyError, UserVisibleError, getErrorMessage } from './errors';
 import { AudioPlayerPanel } from './externalAudioPlayer';
 import { t } from './i18n';
@@ -129,9 +129,12 @@ async function speakDocumentWithRoles(
     const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('minimaxTts'));
     const roleAnalysisClient = createRoleAnalysisClient(roleAnalysisConfig, context.secrets);
     roleAnalysisClientForScene = roleAnalysisClient;
+    const modelDisplay = roleAnalysisConfig.provider === 'copilot'
+      ? roleAnalysisConfig.copilotModelId || t('extension.roleAnalysisProviderCopilot')
+      : roleAnalysisConfig.openaiModel;
     segments = await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: t('extension.roleAnalysisProgress', roleAnalysisConfig.openaiModel),
+      title: t('extension.roleAnalysisProgress', modelDisplay),
       cancellable: true
     }, async (progress, token) => analyzeStoryRoles(text, roleAnalysisClient, token, roleProgress =>
       progress.report({ message: t('extension.roleAnalysisChunk', roleProgress.completedChunks, roleProgress.totalChunks) })
@@ -255,7 +258,85 @@ async function handleError(error: unknown, secretManager: SecretManager): Promis
 
 async function configureRoleAnalysis(secrets: vscode.SecretStorage): Promise<void> {
   const settings = vscode.workspace.getConfiguration('minimaxTts');
+  const currentProvider = settings.get<string>('roleAnalysis.provider', 'openai');
 
+  // Step 1: 选择提供商
+  const providerPick = await vscode.window.showQuickPick(
+    [
+      {
+        label: t('extension.roleAnalysisProviderCopilot'),
+        description: t('extension.roleAnalysisProviderCopilotDesc'),
+        provider: 'copilot' as RoleAnalysisProvider
+      },
+      {
+        label: t('extension.roleAnalysisProviderOpenai'),
+        description: t('extension.roleAnalysisProviderOpenaiDesc'),
+        provider: 'openai' as RoleAnalysisProvider
+      }
+    ],
+    {
+      title: t('extension.roleAnalysisProviderTitle'),
+      placeHolder: currentProvider === 'copilot'
+        ? t('extension.roleAnalysisProviderCopilot')
+        : t('extension.roleAnalysisProviderOpenai'),
+      ignoreFocusOut: true
+    }
+  );
+  if (!providerPick) {
+    return;
+  }
+
+  const provider = providerPick.provider;
+
+  if (provider === 'copilot') {
+    await configureCopilotProvider(settings);
+  } else {
+    await configureOpenaiProvider(settings, secrets);
+  }
+}
+
+async function configureCopilotProvider(settings: vscode.WorkspaceConfiguration): Promise<void> {
+  const allModels = await vscode.lm.selectChatModels({});
+  if (allModels.length === 0) {
+    vscode.window.showWarningMessage(t('extension.roleAnalysisNoCopilotModels'));
+    return;
+  }
+
+  const currentId = settings.get<string>('roleAnalysis.copilotModelId', '');
+
+  // 将模型按 vendor 分组，让列表中显示 vendor/family/name
+  const items = allModels.map(m => ({
+    label: m.name,
+    description: `${m.vendor}/${m.family}`,
+    detail: `id: ${m.id} · maxInput: ${m.maxInputTokens}`,
+    modelId: m.id
+  }));
+
+  const selected = await vscode.window.showQuickPick(items, {
+    title: t('extension.roleAnalysisCopilotModelTitle'),
+    placeHolder: currentId
+      ? items.find(i => i.modelId === currentId)?.label ?? currentId
+      : t('extension.roleAnalysisCopilotModelPlaceholder'),
+    ignoreFocusOut: true,
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  if (!selected) {
+    return;
+  }
+
+  await settings.update('roleAnalysis.provider', 'copilot', vscode.ConfigurationTarget.Global);
+  await settings.update('roleAnalysis.copilotModelId', selected.modelId, vscode.ConfigurationTarget.Global);
+
+  vscode.window.showInformationMessage(
+    t('extension.roleAnalysisCopilotConfigured', selected.label, selected.description)
+  );
+}
+
+async function configureOpenaiProvider(
+  settings: vscode.WorkspaceConfiguration,
+  secrets: vscode.SecretStorage
+): Promise<void> {
   const currentEndpoint = settings.get<string>('roleAnalysis.openaiEndpoint', 'https://api.deepseek.com');
   const endpoint = await vscode.window.showInputBox({
     title: t('extension.apiEndpointTitle'),
@@ -288,6 +369,7 @@ async function configureRoleAnalysis(secrets: vscode.SecretStorage): Promise<voi
     return;
   }
 
+  await settings.update('roleAnalysis.provider', 'openai', vscode.ConfigurationTarget.Global);
   await settings.update('roleAnalysis.openaiEndpoint', endpoint.trim(), vscode.ConfigurationTarget.Global);
   await settings.update('roleAnalysis.openaiModel', model.trim(), vscode.ConfigurationTarget.Global);
 
