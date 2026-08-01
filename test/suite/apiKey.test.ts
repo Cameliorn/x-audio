@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { inspectApiKey, normalizeApiKey } from '../../src/apiKey';
+import { normalizeApiKey } from '../../src/apiKey';
+import { inspectMiniMaxApiKey } from '../../src/providers/minimax/apiKey';
 
 suite('apiKey', () => {
   test('does not require OpenAI-style sk prefixes', () => {
@@ -16,7 +17,7 @@ suite('apiKey', () => {
       TokenType: 2,
       GroupID: '1234567890'
     })).toString('base64url');
-    const info = inspectApiKey(`header.${payload}.signature`);
+    const info = inspectMiniMaxApiKey(`header.${payload}.signature`);
 
     assert.equal(info.isJwt, true);
     assert.equal(info.issuer, 'minimax');

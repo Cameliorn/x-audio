@@ -22,7 +22,7 @@ export interface DirectoryVoiceConfig {
 }
 
 function emptyConfig(): DirectoryVoiceConfig {
-    return { characterVoices: {}, roleTypeVoices: {}, voiceParams: {} };
+  return { characterVoices: {}, roleTypeVoices: {}, voiceParams: {} };
 }
 
 /**
@@ -30,86 +30,87 @@ function emptyConfig(): DirectoryVoiceConfig {
  * 返回最近的一个配置文件；未找到则返回 `undefined`。
  */
 export async function findDirectoryVoiceConfig(fileUri: vscode.Uri): Promise<DirectoryVoiceConfig | undefined> {
-    const directory = vscode.Uri.joinPath(fileUri, '..');
+  const directory = vscode.Uri.joinPath(fileUri, '..');
+  // 在工作区内向上查找；未打开工作区时一路找到文件系统根目录
+  const workspaceRoot = vscode.workspace.getWorkspaceFolder(fileUri)?.uri.toString();
 
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(fileUri);
-    const rootUri = workspaceFolder?.uri ?? vscode.Uri.joinPath(fileUri, '../..');
-
-    let current: vscode.Uri | undefined = directory;
-    while (current) {
-        const candidate = vscode.Uri.joinPath(current, VOICE_CONFIG_FILE_NAME);
-        const parsed = await tryReadVoiceConfig(candidate);
-        if (parsed) {
-            return parsed;
-        }
-
-        if (current.toString() === rootUri.toString()) {
-            current = undefined;
-        } else {
-            const parent = vscode.Uri.joinPath(current, '..');
-            current = parent.toString() === current.toString() ? undefined : parent;
-        }
+  let current: vscode.Uri | undefined = directory;
+  while (current) {
+    const candidate = vscode.Uri.joinPath(current, VOICE_CONFIG_FILE_NAME);
+    const parsed = await tryReadVoiceConfig(candidate);
+    if (parsed) {
+      return parsed;
     }
 
-    return undefined;
+    if (current.toString() === workspaceRoot) {
+      break;
+    }
+    const parent = vscode.Uri.joinPath(current, '..');
+    if (parent.toString() === current.toString()) {
+      break; // 已到达文件系统根目录
+    }
+    current = parent;
+  }
+
+  return undefined;
 }
 
 async function tryReadVoiceConfig(fileUri: vscode.Uri): Promise<DirectoryVoiceConfig | undefined> {
-    let raw: Uint8Array;
-    try {
-        raw = await vscode.workspace.fs.readFile(fileUri);
-    } catch {
-        return undefined;
-    }
+  let raw: Uint8Array;
+  try {
+    raw = await vscode.workspace.fs.readFile(fileUri);
+  } catch {
+    return undefined;
+  }
 
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(Buffer.from(raw).toString('utf8'));
-    } catch {
-        vscode.window.showWarningMessage(t('voiceConfig.invalidJson', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
-        return undefined;
-    }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(raw).toString('utf8'));
+  } catch {
+    vscode.window.showWarningMessage(t('voiceConfig.invalidJson', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
+    return undefined;
+  }
 
-    if (!isRecord(parsed)) {
-        vscode.window.showWarningMessage(t('voiceConfig.invalidFormat', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
-        return undefined;
-    }
+  if (!isRecord(parsed)) {
+    vscode.window.showWarningMessage(t('voiceConfig.invalidFormat', VOICE_CONFIG_FILE_NAME, fileUri.fsPath));
+    return undefined;
+  }
 
-    const record = parsed as Record<string, unknown>;
-    const config = emptyConfig();
+  const record = parsed as Record<string, unknown>;
+  const config = emptyConfig();
 
-    for (const [key, value] of Object.entries(record)) {
-        if (key === ROLE_VOICES_KEY) {
-            if (value && typeof value === 'object' && !Array.isArray(value)) {
-                for (const [roleKey, roleValue] of Object.entries(value as Record<string, unknown>)) {
-                    if (!isRoleVoiceType(roleKey)) {
-                        continue;
-                    }
-                    const parsed = parseConfigValue(roleValue);
-                    if (parsed.voiceId) {
-                        config.roleTypeVoices[roleKey] = parsed.voiceId;
-                    }
-                    if (parsed.params) {
-                        config.voiceParams[roleKey] = parsed.params;
-                    }
-                }
-            }
+  for (const [key, value] of Object.entries(record)) {
+    if (key === ROLE_VOICES_KEY) {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        for (const [roleKey, roleValue] of Object.entries(value as Record<string, unknown>)) {
+          if (!isRoleVoiceType(roleKey)) {
             continue;
+          }
+          const parsed = parseConfigValue(roleValue);
+          if (parsed.voiceId) {
+            config.roleTypeVoices[roleKey] = parsed.voiceId;
+          }
+          if (parsed.params) {
+            config.voiceParams[roleKey] = parsed.params;
+          }
         }
-
-        const parsed = parseConfigValue(value);
-        if (parsed.voiceId) {
-            config.characterVoices[key] = parsed.voiceId;
-        }
-        if (parsed.params) {
-            config.voiceParams[key] = parsed.params;
-        }
+      }
+      continue;
     }
 
-    const hasCharacters = Object.keys(config.characterVoices).length > 0;
-    const hasRoleTypes = Object.keys(config.roleTypeVoices).length > 0;
-    const hasVoiceParams = Object.keys(config.voiceParams).length > 0;
-    return hasCharacters || hasRoleTypes || hasVoiceParams ? config : undefined;
+    const parsed = parseConfigValue(value);
+    if (parsed.voiceId) {
+      config.characterVoices[key] = parsed.voiceId;
+    }
+    if (parsed.params) {
+      config.voiceParams[key] = parsed.params;
+    }
+  }
+
+  const hasCharacters = Object.keys(config.characterVoices).length > 0;
+  const hasRoleTypes = Object.keys(config.roleTypeVoices).length > 0;
+  const hasVoiceParams = Object.keys(config.voiceParams).length > 0;
+  return hasCharacters || hasRoleTypes || hasVoiceParams ? config : undefined;
 }
 
 interface ParsedConfigValue {
@@ -118,46 +119,46 @@ interface ParsedConfigValue {
 }
 
 function parseConfigValue(value: unknown): ParsedConfigValue {
-    if (typeof value === 'string' && value.trim().length > 0) {
-        return { voiceId: value.trim() };
-    }
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return { voiceId: value.trim() };
+  }
 
-    if (isRecord(value)) {
-        const obj = value;
-        const voiceId = typeof obj.voiceId === 'string' && obj.voiceId.trim().length > 0 ? obj.voiceId.trim() : undefined;
-        const speed = clampNumber(obj.speed, 0.5, 2.0);
-        const pitch = clampNumber(obj.pitch, -12, 12);
-        const vol = typeof obj.vol === 'number' && Number.isFinite(obj.vol) && obj.vol > 0 && obj.vol <= 10 ? obj.vol : undefined;
-        const hasParams = speed !== undefined || pitch !== undefined || vol !== undefined;
-        return {
-            voiceId,
-            params: hasParams ? { speed, pitch, vol } : undefined
-        };
-    }
+  if (isRecord(value)) {
+    const obj = value;
+    const voiceId = typeof obj.voiceId === 'string' && obj.voiceId.trim().length > 0 ? obj.voiceId.trim() : undefined;
+    const speed = clampNumber(obj.speed, 0.5, 2.0);
+    const pitch = clampNumber(obj.pitch, -12, 12);
+    const vol = typeof obj.vol === 'number' && Number.isFinite(obj.vol) && obj.vol > 0 && obj.vol <= 10 ? obj.vol : undefined;
+    const hasParams = speed !== undefined || pitch !== undefined || vol !== undefined;
+    return {
+      voiceId,
+      params: hasParams ? { speed, pitch, vol } : undefined
+    };
+  }
 
-    return {};
+  return {};
 }
 
 function isRoleVoiceType(key: string): key is RoleVoiceType {
-    return (ROLE_VOICE_TYPES as readonly string[]).includes(key);
+  return (ROLE_VOICE_TYPES as readonly string[]).includes(key);
 }
 
 export function applyVoiceConfig(
-    segment: { speaker: string; voice: string; speed?: number; pitch?: number; vol?: number },
-    voiceParams?: Readonly<Record<string, VoiceParams>>
+  segment: { speaker: string; voice: string; speed?: number; pitch?: number; vol?: number },
+  voiceParams?: Readonly<Record<string, VoiceParams>>
 ): { speed?: number; pitch?: number; vol?: number } {
-    let speed = segment.speed;
-    let pitch = segment.pitch;
-    let vol = segment.vol;
+  let speed = segment.speed;
+  let pitch = segment.pitch;
+  let vol = segment.vol;
 
-    if (voiceParams) {
-        const override = voiceParams[segment.speaker] ?? voiceParams[segment.voice];
-        if (override) {
-            if (override.speed !== undefined) { speed = override.speed; }
-            if (override.pitch !== undefined) { pitch = override.pitch; }
-            if (override.vol !== undefined) { vol = override.vol; }
-        }
+  if (voiceParams) {
+    const override = voiceParams[segment.speaker] ?? voiceParams[segment.voice];
+    if (override) {
+      if (override.speed !== undefined) { speed = override.speed; }
+      if (override.pitch !== undefined) { pitch = override.pitch; }
+      if (override.vol !== undefined) { vol = override.vol; }
     }
+  }
 
-    return { speed, pitch, vol };
+  return { speed, pitch, vol };
 }

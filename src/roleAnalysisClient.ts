@@ -9,142 +9,167 @@ export interface RoleAnalysisClient {
 }
 
 export function createRoleAnalysisClient(
-    config: RoleAnalysisConfig,
-    secrets: vscode.SecretStorage
+  config: RoleAnalysisConfig,
+  secrets: vscode.SecretStorage
 ): RoleAnalysisClient {
-    if (config.provider === 'copilot') {
-        return new CopilotRoleAnalysisClient(config);
-    }
-    return new OpenAIRoleAnalysisClient(config, secrets);
+  if (config.provider === 'copilot') {
+    return new CopilotRoleAnalysisClient(config);
+  }
+  return new OpenAIRoleAnalysisClient(config, secrets);
 }
 
 // ─── Copilot 内置模型 ────────────────────────────────────────
 
 class CopilotRoleAnalysisClient implements RoleAnalysisClient {
-    public constructor(
+  public constructor(
         private readonly config: RoleAnalysisConfig
-    ) { }
+  ) { }
 
-    public async sendRequest(
-        prompt: string,
-        token: vscode.CancellationToken
-    ): Promise<string> {
-        if (!this.config.copilotModelId) {
-            throw new UserVisibleError(t('roleAnalysis.copilotNotConfigured'));
-        }
-
-        const [model] = await vscode.lm.selectChatModels({ id: this.config.copilotModelId });
-        if (!model) {
-            throw new UserVisibleError(
-                t('roleAnalysis.copilotModelNotFound', this.config.copilotModelId)
-            );
-        }
-
-        const messages = [
-            vscode.LanguageModelChatMessage.User(prompt)
-        ];
-
-        const response = await model.sendRequest(messages, {}, token);
-
-        const parts: string[] = [];
-        for await (const chunk of response.stream) {
-            if (chunk instanceof vscode.LanguageModelTextPart) {
-                parts.push(chunk.value);
-            }
-        }
-
-        const content = parts.join('').trim();
-        if (content.length === 0) {
-            throw new UserVisibleError(t('roleAnalysis.emptyContent'));
-        }
-
-        return content;
+  public async sendRequest(
+    prompt: string,
+    token: vscode.CancellationToken
+  ): Promise<string> {
+    if (!this.config.copilotModelId) {
+      throw new UserVisibleError(t('roleAnalysis.copilotNotConfigured'));
     }
+
+    const [model] = await vscode.lm.selectChatModels({ id: this.config.copilotModelId });
+    if (!model) {
+      throw new UserVisibleError(
+        t('roleAnalysis.copilotModelNotFound', this.config.copilotModelId)
+      );
+    }
+
+    // 预检测：部分模型缺少 tokenizer 元数据，sendRequest 内部计算 token 时会抛
+    // "Unknown tokenizer: undefined"（Copilot 扩展已知问题）。提前用 countTokens 暴露，
+    // 走与 sendRequest 相同的 acquireTokenizer 路径。
+    try {
+      await model.countTokens('检测', token);
+    } catch (error) {
+      if (error instanceof vscode.CancellationError) {
+        throw error;
+      }
+      if (error instanceof Error && /unknown tokenizer/i.test(error.message)) {
+        throw new UserVisibleError(t('roleAnalysis.copilotTokenizerError', model.name, vscode.version));
+      }
+    }
+
+    const messages = [
+      vscode.LanguageModelChatMessage.User(prompt)
+    ];
+
+    let response: vscode.LanguageModelChatResponse;
+    try {
+      response = await model.sendRequest(messages, {}, token);
+    } catch (error) {
+      if (error instanceof vscode.CancellationError) {
+        throw error;
+      }
+      if (error instanceof Error && /unknown tokenizer/i.test(error.message)) {
+        throw new UserVisibleError(t('roleAnalysis.copilotTokenizerError', model.name, vscode.version));
+      }
+      throw error;
+    }
+
+    const parts: string[] = [];
+    for await (const chunk of response.stream) {
+      if (chunk instanceof vscode.LanguageModelTextPart) {
+        parts.push(chunk.value);
+      }
+    }
+
+    const content = parts.join('').trim();
+    if (content.length === 0) {
+      throw new UserVisibleError(t('roleAnalysis.emptyContent'));
+    }
+
+    return content;
+  }
 }
 
 // ─── OpenAI 兼容接口 ────────────────────────────────────────
 
 class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
-    public constructor(
+  public constructor(
         private readonly config: RoleAnalysisConfig,
         private readonly secrets: vscode.SecretStorage
-    ) { }
+  ) { }
 
-    public async sendRequest(
-        prompt: string,
-        token: vscode.CancellationToken
-    ): Promise<string> {
-        const apiKey = await this.resolveApiKey();
-        const endpoint = ensureChatCompletionsUrl(this.config.openaiEndpoint);
-        const model = this.config.openaiModel;
+  public async sendRequest(
+    prompt: string,
+    token: vscode.CancellationToken
+  ): Promise<string> {
+    const apiKey = await this.resolveApiKey();
+    const endpoint = ensureChatCompletionsUrl(this.config.openaiEndpoint);
+    const model = this.config.openaiModel;
 
-        const { controller, clear } = createAbortController(token);
+    const { controller, clear } = createAbortController(token);
 
-        try {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [
-                        { role: 'user', content: prompt }
-                    ],
-                    temperature: 0.3,
-                    stream: false
-                }),
-                signal: controller.signal
-            });
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.3,
+          stream: false
+        }),
+        signal: controller.signal
+      });
 
-            if (!response.ok) {
-                const body = await response.text().catch(() => '');
-                throw new UserVisibleError(
-                    t('roleAnalysis.apiError', response.status, body.slice(0, 300))
-                );
-            }
+      if (!response.ok) {
+        const body = await response.text().catch(() => '');
+        throw new UserVisibleError(
+          t('roleAnalysis.apiError', response.status, body.slice(0, 300))
+        );
+      }
 
-            const data = await response.json() as Record<string, unknown>;
-            const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
-            const content = choices?.[0]?.message?.content;
+      const data = await response.json() as Record<string, unknown>;
+      const choices = data.choices as Array<{ message?: { content?: string } }> | undefined;
+      const content = choices?.[0]?.message?.content;
 
-            if (typeof content !== 'string' || content.trim().length === 0) {
-                throw new UserVisibleError(t('roleAnalysis.emptyContent'));
-            }
+      if (typeof content !== 'string' || content.trim().length === 0) {
+        throw new UserVisibleError(t('roleAnalysis.emptyContent'));
+      }
 
-            return content;
-        } catch (error) {
-            if (error instanceof Error && error.name === 'AbortError') {
-                throw new vscode.CancellationError();
-            }
+      return content;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new vscode.CancellationError();
+      }
 
-            throw error;
-        } finally {
-            clear();
-        }
+      throw error;
+    } finally {
+      clear();
+    }
+  }
+
+  private async resolveApiKey(): Promise<string> {
+    const key = await this.secrets.get('audioplugin.roleAnalysisApiKey');
+    if (!key) {
+      throw new UserVisibleError(t('roleAnalysis.missingApiKey'));
     }
 
-    private async resolveApiKey(): Promise<string> {
-        const key = await this.secrets.get('minimaxTts.roleAnalysisApiKey');
-        if (!key) {
-            throw new UserVisibleError(t('roleAnalysis.missingApiKey'));
-        }
-
-        return key;
-    }
+    return key;
+  }
 }
 
 function ensureChatCompletionsUrl(endpoint: string): string {
-    let url = endpoint.trim().replace(/\/+$/, '');
+  let url = endpoint.trim().replace(/\/+$/, '');
 
-    if (!/^https?:\/\//i.test(url)) {
-        url = `https://${url}`;
-    }
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
 
-    if (!/\/chat\/completions$/i.test(url)) {
-        url = `${url}/chat/completions`;
-    }
+  if (!/\/chat\/completions$/i.test(url)) {
+    url = `${url}/chat/completions`;
+  }
 
-    return url;
+  return url;
 }

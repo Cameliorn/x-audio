@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { findDirectoryVoiceConfig } from '../../src/voiceConfigFile';
 
 function tempUri(...segments: string[]): vscode.Uri {
-  return vscode.Uri.joinPath(vscode.Uri.file(os.tmpdir()), 'minimax-tts-test', ...segments);
+  return vscode.Uri.joinPath(vscode.Uri.file(os.tmpdir()), 'audioplugin-test', ...segments);
 }
 
 suite('voiceConfigFile', () => {

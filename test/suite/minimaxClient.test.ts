@@ -1,16 +1,17 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { DEFAULT_CONFIG, normalizeApiHost } from '../../src/config';
 import { MiniMaxApiError, UserVisibleError } from '../../src/errors';
-import { MiniMaxClient, buildMiniMaxTtsPayload, decodeHexAudio } from '../../src/minimaxClient';
+import { MiniMaxClient, buildMiniMaxTtsPayload, decodeHexAudio } from '../../src/providers/minimax/client';
+import { DEFAULT_MINI_MAX_CONFIG, normalizeApiHost } from '../../src/providers/minimax/config';
 
 suite('MiniMaxClient', () => {
   test('builds a T2A request payload with overrides', () => {
-    const payload = buildMiniMaxTtsPayload('hello', DEFAULT_CONFIG, {
-      voiceId: ' custom-voice '
+    const payload = buildMiniMaxTtsPayload('hello', DEFAULT_MINI_MAX_CONFIG, {
+      voiceId: ' custom-voice ',
+      model: 'speech-2.8-hd'
     });
 
-    assert.equal(payload.model, 'speech-2.8-turbo');
+    assert.equal(payload.model, 'speech-2.8-hd');
     assert.equal(payload.text, 'hello');
     assert.equal(payload.stream, false);
     assert.equal(payload.output_format, 'hex');
@@ -30,7 +31,7 @@ suite('MiniMaxClient', () => {
 
   test('adds configurable pronunciation, voice effects, subtitles, and channel settings', () => {
     const payload = buildMiniMaxTtsPayload('hello', {
-      ...DEFAULT_CONFIG,
+      ...DEFAULT_MINI_MAX_CONFIG,
       channel: 2,
       pronunciationTone: ['Omg/Oh my god'],
       voiceModifyEnabled: true,
@@ -63,7 +64,7 @@ suite('MiniMaxClient', () => {
 
   test('merges advanced request fields without overriding playback-critical fields', () => {
     const payload = buildMiniMaxTtsPayload('hello', {
-      ...DEFAULT_CONFIG,
+      ...DEFAULT_MINI_MAX_CONFIG,
       extraRequestJson: {
         timbre_weights: [
           {
@@ -108,7 +109,7 @@ suite('MiniMaxClient', () => {
   });
 
   test('surfaces MiniMax API errors with trace id', async () => {
-    const client = new MiniMaxClient(DEFAULT_CONFIG, async () => new Response(JSON.stringify({
+    const client = new MiniMaxClient(() => DEFAULT_MINI_MAX_CONFIG, async () => new Response(JSON.stringify({
       trace_id: 'trace-123',
       base_resp: {
         status_code: 1001,
@@ -122,8 +123,9 @@ suite('MiniMaxClient', () => {
     await assert.rejects(
       client.synthesizeSpeech(
         'hello',
-        DEFAULT_CONFIG.voiceId,
+        DEFAULT_MINI_MAX_CONFIG.voiceId,
         undefined, undefined, undefined, undefined,
+        undefined,
         'key',
         tokenSource.token
       ),
@@ -135,7 +137,7 @@ suite('MiniMaxClient', () => {
   });
 
   test('returns audio bytes for a successful response', async () => {
-    const client = new MiniMaxClient(DEFAULT_CONFIG, async () => new Response(JSON.stringify({
+    const client = new MiniMaxClient(() => DEFAULT_MINI_MAX_CONFIG, async () => new Response(JSON.stringify({
       data: {
         audio: '6869',
         status: 2
@@ -152,8 +154,9 @@ suite('MiniMaxClient', () => {
     const tokenSource = new vscode.CancellationTokenSource();
     const result = await client.synthesizeSpeech(
       'hello',
-      DEFAULT_CONFIG.voiceId,
+      DEFAULT_MINI_MAX_CONFIG.voiceId,
       undefined, undefined, undefined, undefined,
+      undefined,
       'key',
       tokenSource.token
     );

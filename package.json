@@ -1,8 +1,8 @@
 {
-  "name": "minimax-tts",
-  "displayName": "MiniMax TTS",
-  "description": "%minimaxTts.description%",
-  "version": "0.1.2",
+  "name": "audioplugin",
+  "displayName": "AudioPlugin 朗读助手",
+  "description": "%audioplugin.description%",
+  "version": "0.2.0",
   "publisher": "Cameliorn",
   "icon": "icon.png",
   "license": "MIT",
@@ -22,16 +22,16 @@
     "Other"
   ],
   "keywords": [
-    "minimax",
     "tts",
     "text-to-speech",
     "audio",
+    "read-aloud",
     "copilot",
     "agent"
   ],
   "main": "./out/src/extension.js",
   "activationEvents": [
-    "onLanguageModelTool:minimax_tts_speak"
+    "onLanguageModelTool:audioplugin_speak"
   ],
   "extensionKind": [
     "ui"
@@ -45,96 +45,109 @@
   "contributes": {
     "commands": [
       {
-        "command": "minimaxTts.speakSelection",
-        "title": "%minimaxTts.commands.speakSelection.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.speakSelection",
+        "title": "%audioplugin.commands.speakSelection.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(unmute)"
       },
       {
-        "command": "minimaxTts.speakInput",
-        "title": "%minimaxTts.commands.speakInput.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.speakInput",
+        "title": "%audioplugin.commands.speakInput.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "minimaxTts.speakDocumentWithRoles",
-        "title": "%minimaxTts.commands.speakDocumentWithRoles.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.speakDocumentWithRoles",
+        "title": "%audioplugin.commands.speakDocumentWithRoles.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(book)"
       },
       {
-        "command": "minimaxTts.setApiKey",
-        "title": "%minimaxTts.commands.setApiKey.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.setApiKey",
+        "title": "%audioplugin.commands.setApiKey.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(key)"
       },
       {
-        "command": "minimaxTts.pause",
-        "title": "%minimaxTts.commands.pause.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.pause",
+        "title": "%audioplugin.commands.pause.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(debug-pause)"
       },
       {
-        "command": "minimaxTts.stop",
-        "title": "%minimaxTts.commands.stop.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.stop",
+        "title": "%audioplugin.commands.stop.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(debug-stop)"
       },
       {
-        "command": "minimaxTts.configureRoleAnalysis",
-        "title": "%minimaxTts.commands.configureRoleAnalysis.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.configureRoleAnalysis",
+        "title": "%audioplugin.commands.configureRoleAnalysis.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "minimaxTts.setSoundEffectsDir",
-        "title": "%minimaxTts.commands.setSoundEffectsDir.title%",
-        "category": "%minimaxTts.commands.category%",
+        "command": "audioplugin.setSoundEffectsDir",
+        "title": "%audioplugin.commands.setSoundEffectsDir.title%",
+        "category": "%audioplugin.commands.category%",
         "icon": "$(folder-library)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "minimaxTts.speakSelection",
+          "command": "audioplugin.speakSelection",
           "when": "false"
         },
         {
-          "command": "minimaxTts.speakInput",
+          "command": "audioplugin.speakInput",
           "when": "false"
         },
         {
-          "command": "minimaxTts.pause",
+          "command": "audioplugin.pause",
           "when": "false"
         },
         {
-          "command": "minimaxTts.stop",
+          "command": "audioplugin.stop",
           "when": "false"
         }
       ],
       "editor/context": [
         {
-          "command": "minimaxTts.speakSelection",
-          "group": "1_minimaxTts@1",
+          "command": "audioplugin.speakSelection",
+          "group": "1_audioplugin@1",
           "when": "editorHasSelection"
         },
         {
-          "command": "minimaxTts.speakDocumentWithRoles",
-          "group": "1_minimaxTts@2"
+          "command": "audioplugin.speakDocumentWithRoles",
+          "group": "1_audioplugin@2"
         }
       ]
     },
     "configuration": {
-      "title": "%minimaxTts.configuration.title%",
+      "title": "%audioplugin.configuration.title%",
       "properties": {
-        "minimaxTts.apiHost": {
+        "audioplugin.provider": {
+          "order": 1,
+          "type": "string",
+          "default": "minimax",
+          "enum": [
+            "minimax"
+          ],
+          "enumDescriptions": [
+            "%audioplugin.configuration.properties.provider.enum.minimax%"
+          ],
+          "scope": "application",
+          "description": "%audioplugin.configuration.properties.provider.description%"
+        },
+        "audioplugin.minimax.apiHost": {
           "order": 10,
           "type": "string",
           "default": "https://api.minimax.io",
           "scope": "application",
-          "description": "%minimaxTts.configuration.properties.apiHost.description%"
+          "description": "%audioplugin.configuration.properties.minimax.apiHost.description%"
         },
-        "minimaxTts.model": {
+        "audioplugin.minimax.model": {
           "order": 11,
           "type": "string",
           "enum": [
@@ -148,9 +161,9 @@
             "speech-01-turbo"
           ],
           "default": "speech-2.8-turbo",
-          "description": "%minimaxTts.configuration.properties.model.description%"
+          "description": "%audioplugin.configuration.properties.minimax.model.description%"
         },
-        "minimaxTts.format": {
+        "audioplugin.minimax.format": {
           "order": 12,
           "type": "string",
           "enum": [
@@ -159,23 +172,23 @@
             "flac"
           ],
           "default": "mp3",
-          "description": "%minimaxTts.configuration.properties.format.description%"
+          "description": "%audioplugin.configuration.properties.minimax.format.description%"
         },
-        "minimaxTts.sampleRate": {
+        "audioplugin.minimax.sampleRate": {
           "order": 13,
           "type": "number",
           "default": 32000,
           "minimum": 8000,
-          "description": "%minimaxTts.configuration.properties.sampleRate.description%"
+          "description": "%audioplugin.configuration.properties.minimax.sampleRate.description%"
         },
-        "minimaxTts.bitrate": {
+        "audioplugin.minimax.bitrate": {
           "order": 14,
           "type": "number",
           "default": 128000,
           "minimum": 16000,
-          "description": "%minimaxTts.configuration.properties.bitrate.description%"
+          "description": "%audioplugin.configuration.properties.minimax.bitrate.description%"
         },
-        "minimaxTts.channel": {
+        "audioplugin.minimax.channel": {
           "order": 15,
           "type": "number",
           "enum": [
@@ -183,9 +196,9 @@
             2
           ],
           "default": 1,
-          "description": "%minimaxTts.configuration.properties.channel.description%"
+          "description": "%audioplugin.configuration.properties.minimax.channel.description%"
         },
-        "minimaxTts.languageBoost": {
+        "audioplugin.minimax.languageBoost": {
           "order": 16,
           "type": "string",
           "enum": [
@@ -232,92 +245,92 @@
             "Afrikaans"
           ],
           "default": "auto",
-          "description": "%minimaxTts.configuration.properties.languageBoost.description%"
+          "description": "%audioplugin.configuration.properties.minimax.languageBoost.description%"
         },
-        "minimaxTts.pronunciationTone": {
+        "audioplugin.minimax.pronunciationTone": {
           "order": 17,
           "type": "array",
           "default": [],
           "items": {
             "type": "string"
           },
-          "description": "%minimaxTts.configuration.properties.pronunciationTone.description%"
+          "description": "%audioplugin.configuration.properties.minimax.pronunciationTone.description%"
         },
-        "minimaxTts.extraRequestJson": {
+        "audioplugin.minimax.extraRequestJson": {
           "order": 18,
           "type": "object",
           "default": {},
-          "description": "%minimaxTts.configuration.properties.extraRequestJson.description%"
+          "description": "%audioplugin.configuration.properties.minimax.extraRequestJson.description%"
         },
-        "minimaxTts.voiceId": {
+        "audioplugin.minimax.voiceId": {
           "order": 20,
           "type": "string",
           "default": "English_expressive_narrator",
-          "description": "%minimaxTts.configuration.properties.voiceId.description%"
+          "description": "%audioplugin.configuration.properties.minimax.voiceId.description%"
         },
-        "minimaxTts.speed": {
+        "audioplugin.minimax.speed": {
           "order": 21,
           "type": "number",
           "default": 1,
           "minimum": 0.5,
           "maximum": 2,
-          "description": "%minimaxTts.configuration.properties.speed.description%"
+          "description": "%audioplugin.configuration.properties.minimax.speed.description%"
         },
-        "minimaxTts.vol": {
+        "audioplugin.minimax.vol": {
           "order": 22,
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 10,
-          "description": "%minimaxTts.configuration.properties.vol.description%"
+          "description": "%audioplugin.configuration.properties.minimax.vol.description%"
         },
-        "minimaxTts.pitch": {
+        "audioplugin.minimax.pitch": {
           "order": 23,
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "%minimaxTts.configuration.properties.pitch.description%"
+          "description": "%audioplugin.configuration.properties.minimax.pitch.description%"
         },
-        "minimaxTts.voiceModifyEnabled": {
+        "audioplugin.minimax.voiceModifyEnabled": {
           "order": 30,
           "type": "boolean",
           "default": false,
-          "description": "%minimaxTts.configuration.properties.voiceModifyEnabled.description%"
+          "description": "%audioplugin.configuration.properties.minimax.voiceModifyEnabled.description%"
         },
-        "minimaxTts.voiceModifyPitch": {
+        "audioplugin.minimax.voiceModifyPitch": {
           "order": 31,
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "%minimaxTts.configuration.properties.voiceModifyPitch.description%"
+          "description": "%audioplugin.configuration.properties.minimax.voiceModifyPitch.description%"
         },
-        "minimaxTts.voiceModifyIntensity": {
+        "audioplugin.minimax.voiceModifyIntensity": {
           "order": 32,
           "type": "number",
           "default": 0,
-          "description": "%minimaxTts.configuration.properties.voiceModifyIntensity.description%"
+          "description": "%audioplugin.configuration.properties.minimax.voiceModifyIntensity.description%"
         },
-        "minimaxTts.voiceModifyTimbre": {
+        "audioplugin.minimax.voiceModifyTimbre": {
           "order": 33,
           "type": "number",
           "default": 0,
-          "description": "%minimaxTts.configuration.properties.voiceModifyTimbre.description%"
+          "description": "%audioplugin.configuration.properties.minimax.voiceModifyTimbre.description%"
         },
-        "minimaxTts.voiceModifySoundEffects": {
+        "audioplugin.minimax.voiceModifySoundEffects": {
           "order": 34,
           "type": "string",
           "default": "",
-          "description": "%minimaxTts.configuration.properties.voiceModifySoundEffects.description%"
+          "description": "%audioplugin.configuration.properties.minimax.voiceModifySoundEffects.description%"
         },
-        "minimaxTts.subtitleEnable": {
+        "audioplugin.minimax.subtitleEnable": {
           "order": 40,
           "type": "boolean",
           "default": false,
-          "description": "%minimaxTts.configuration.properties.subtitleEnable.description%"
+          "description": "%audioplugin.configuration.properties.minimax.subtitleEnable.description%"
         },
-        "minimaxTts.subtitleType": {
+        "audioplugin.minimax.subtitleType": {
           "order": 41,
           "type": "string",
           "enum": [
@@ -325,42 +338,9 @@
             "word"
           ],
           "default": "sentence",
-          "description": "%minimaxTts.configuration.properties.subtitleType.description%"
+          "description": "%audioplugin.configuration.properties.minimax.subtitleType.description%"
         },
-        "minimaxTts.cacheEnabled": {
-          "order": 50,
-          "type": "boolean",
-          "default": true,
-          "description": "%minimaxTts.configuration.properties.cacheEnabled.description%"
-        },
-        "minimaxTts.cacheMaxSizeMb": {
-          "order": 51,
-          "type": "number",
-          "default": 512,
-          "minimum": 0,
-          "description": "%minimaxTts.configuration.properties.cacheMaxSizeMb.description%"
-        },
-        "minimaxTts.maxTextLength": {
-          "order": 52,
-          "type": "number",
-          "default": 10000,
-          "minimum": 1,
-          "description": "%minimaxTts.configuration.properties.maxTextLength.description%"
-        },
-        "minimaxTts.requestTimeoutMs": {
-          "order": 53,
-          "type": "number",
-          "default": 60000,
-          "minimum": 1000,
-          "description": "%minimaxTts.configuration.properties.requestTimeoutMs.description%"
-        },
-        "minimaxTts.browserPath": {
-          "order": 60,
-          "type": "string",
-          "default": "",
-          "description": "%minimaxTts.configuration.properties.browserPath.description%"
-        },
-        "minimaxTts.roleVoices": {
+        "audioplugin.minimax.roleVoices": {
           "order": 70,
           "type": "object",
           "default": {
@@ -375,10 +355,50 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "%minimaxTts.configuration.properties.roleVoices.description%"
+          "description": "%audioplugin.configuration.properties.minimax.roleVoices.description%"
         },
-        "minimaxTts.roleAnalysis.provider": {
-          "order": 70,
+        "audioplugin.cacheEnabled": {
+          "order": 50,
+          "type": "boolean",
+          "default": true,
+          "description": "%audioplugin.configuration.properties.cacheEnabled.description%"
+        },
+        "audioplugin.cacheMaxSizeMb": {
+          "order": 51,
+          "type": "number",
+          "default": 512,
+          "minimum": 0,
+          "description": "%audioplugin.configuration.properties.cacheMaxSizeMb.description%"
+        },
+        "audioplugin.maxTextLength": {
+          "order": 52,
+          "type": "number",
+          "default": 10000,
+          "minimum": 1,
+          "description": "%audioplugin.configuration.properties.maxTextLength.description%"
+        },
+        "audioplugin.requestTimeoutMs": {
+          "order": 53,
+          "type": "number",
+          "default": 60000,
+          "minimum": 1000,
+          "description": "%audioplugin.configuration.properties.requestTimeoutMs.description%"
+        },
+        "audioplugin.maxConcurrentRequests": {
+          "order": 54,
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "description": "%audioplugin.configuration.properties.maxConcurrentRequests.description%"
+        },
+        "audioplugin.browserPath": {
+          "order": 60,
+          "type": "string",
+          "default": "",
+          "description": "%audioplugin.configuration.properties.browserPath.description%"
+        },
+        "audioplugin.roleAnalysis.provider": {
+          "order": 71,
           "type": "string",
           "default": "openai",
           "enum": [
@@ -386,59 +406,59 @@
             "openai"
           ],
           "enumDescriptions": [
-            "%minimaxTts.configuration.properties.roleAnalysisProvider.copilot%",
-            "%minimaxTts.configuration.properties.roleAnalysisProvider.openai%"
+            "%audioplugin.configuration.properties.roleAnalysisProvider.copilot%",
+            "%audioplugin.configuration.properties.roleAnalysisProvider.openai%"
           ],
           "scope": "application",
-          "description": "%minimaxTts.configuration.properties.roleAnalysisProvider.description%"
+          "description": "%audioplugin.configuration.properties.roleAnalysisProvider.description%"
         },
-        "minimaxTts.roleAnalysis.copilotModelId": {
-          "order": 71,
+        "audioplugin.roleAnalysis.copilotModelId": {
+          "order": 72,
           "type": "string",
           "default": "",
           "scope": "application",
-          "description": "%minimaxTts.configuration.properties.roleAnalysisCopilotModelId.description%"
+          "description": "%audioplugin.configuration.properties.roleAnalysisCopilotModelId.description%"
         },
-        "minimaxTts.roleAnalysis.openaiEndpoint": {
-          "order": 72,
+        "audioplugin.roleAnalysis.openaiEndpoint": {
+          "order": 73,
           "type": "string",
           "default": "https://api.deepseek.com",
           "scope": "application",
-          "description": "%minimaxTts.configuration.properties.roleAnalysisOpenaiEndpoint.description%"
+          "description": "%audioplugin.configuration.properties.roleAnalysisOpenaiEndpoint.description%"
         },
-        "minimaxTts.roleAnalysis.openaiModel": {
-          "order": 73,
+        "audioplugin.roleAnalysis.openaiModel": {
+          "order": 74,
           "type": "string",
           "default": "deepseek-chat",
           "scope": "application",
-          "description": "%minimaxTts.configuration.properties.roleAnalysisOpenaiModel.description%"
+          "description": "%audioplugin.configuration.properties.roleAnalysisOpenaiModel.description%"
         },
-        "minimaxTts.roleAnalysis.customPrompt": {
-          "order": 74,
-          "type": "string",
-          "default": "",
-          "description": "%minimaxTts.configuration.properties.roleAnalysisCustomPrompt.description%"
-        },
-        "minimaxTts.soundEffectsDir": {
+        "audioplugin.roleAnalysis.customPrompt": {
           "order": 75,
           "type": "string",
           "default": "",
-          "description": "%minimaxTts.configuration.properties.soundEffectsDir.description%"
+          "description": "%audioplugin.configuration.properties.roleAnalysisCustomPrompt.description%"
+        },
+        "audioplugin.soundEffectsDir": {
+          "order": 76,
+          "type": "string",
+          "default": "",
+          "description": "%audioplugin.configuration.properties.soundEffectsDir.description%"
         }
       }
     },
     "languageModelTools": [
       {
-        "name": "minimax_tts_speak",
+        "name": "audioplugin_speak",
         "tags": [
-          "minimax",
           "tts",
-          "audio"
+          "audio",
+          "read-aloud"
         ],
         "toolReferenceName": "speakText",
-        "displayName": "%minimaxTts.languageModelTools.speakText.displayName%",
-        "modelDescription": "%minimaxTts.languageModelTools.speakText.modelDescription%",
-        "userDescription": "%minimaxTts.languageModelTools.speakText.userDescription%",
+        "displayName": "%audioplugin.languageModelTools.speakText.displayName%",
+        "modelDescription": "%audioplugin.languageModelTools.speakText.modelDescription%",
+        "userDescription": "%audioplugin.languageModelTools.speakText.userDescription%",
         "canBeReferencedInPrompt": true,
         "icon": "$(unmute)",
         "inputSchema": {
@@ -446,15 +466,15 @@
           "properties": {
             "text": {
               "type": "string",
-              "description": "%minimaxTts.languageModelTools.speakText.inputSchema.text.description%"
+              "description": "%audioplugin.languageModelTools.speakText.inputSchema.text.description%"
             },
             "voice_id": {
               "type": "string",
-              "description": "%minimaxTts.languageModelTools.speakText.inputSchema.voice_id.description%"
+              "description": "%audioplugin.languageModelTools.speakText.inputSchema.voice_id.description%"
             },
             "model": {
               "type": "string",
-              "description": "%minimaxTts.languageModelTools.speakText.inputSchema.model.description%"
+              "description": "%audioplugin.languageModelTools.speakText.inputSchema.model.description%"
             }
           },
           "required": [

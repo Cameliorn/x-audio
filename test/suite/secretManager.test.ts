@@ -1,12 +1,13 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { MissingApiKeyError } from '../../src/errors';
+import { minimaxProvider } from '../../src/providers/minimax';
 import { SecretManager } from '../../src/secretManager';
 
 suite('SecretManager', () => {
   test('throws a user-facing error when the API key is missing', async () => {
     const secrets = new MemorySecretStorage();
-    const manager = new SecretManager(secrets);
+    const manager = new SecretManager(secrets, minimaxProvider);
 
     await assert.rejects(
       manager.requireApiKey(),
@@ -16,16 +17,16 @@ suite('SecretManager', () => {
 
   test('returns a stored API key', async () => {
     const secrets = new MemorySecretStorage();
-    await secrets.store('minimaxTts.apiKey', ' key-value ');
-    const manager = new SecretManager(secrets);
+    await secrets.store('audioplugin.minimax.apiKey', ' key-value ');
+    const manager = new SecretManager(secrets, minimaxProvider);
 
     assert.equal(await manager.requireApiKey(), 'key-value');
   });
 
   test('normalizes a Bearer-prefixed API key', async () => {
     const secrets = new MemorySecretStorage();
-    await secrets.store('minimaxTts.apiKey', ' Bearer key-value ');
-    const manager = new SecretManager(secrets);
+    await secrets.store('audioplugin.minimax.apiKey', ' Bearer key-value ');
+    const manager = new SecretManager(secrets, minimaxProvider);
 
     assert.equal(await manager.requireApiKey(), 'key-value');
   });

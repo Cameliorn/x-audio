@@ -6,7 +6,7 @@ import type { AddressInfo } from 'net';
 import * as path from 'path';
 import { promisify } from 'util';
 import * as vscode from 'vscode';
-import { getMiniMaxConfig } from './config';
+import { getTtsConfig } from './config';
 import { fileExists } from './fileUtils';
 import { t } from './i18n';
 import { getAudioMime, getAudioMimeFromPath, getPlayerPage } from './playerPage';
@@ -147,8 +147,7 @@ export class AudioPlayerPanel {
   private browserProfilePath = '';
 
   public constructor(
-    context: vscode.ExtensionContext,
-    _playerRoot: vscode.Uri
+    context: vscode.ExtensionContext
   ) {
     this.browserProfileRoot = vscode.Uri.joinPath(context.globalStorageUri, 'browser-profile');
     // 每次创建实例使用不同的 profile 目录，避免与上次未退出的浏览器进程冲突
@@ -158,7 +157,7 @@ export class AudioPlayerPanel {
     this.contentSecurityPolicy = page.contentSecurityPolicy;
   }
 
-  public async play(audioFile: TtsAudioFile, _text?: string, soundEffectFile?: string): Promise<void> {
+  public async play(audioFile: TtsAudioFile, soundEffectFile?: string): Promise<void> {
     await this.playQueue([audioFile], soundEffectFile);
   }
 
@@ -404,7 +403,7 @@ async function launchBrowserWindow(
   onLaunch: (child: ChildProcess, profilePath: string) => void
 ): Promise<void> {
   // 用户手动指定的浏览器路径
-  const config = getMiniMaxConfig();
+  const config = getTtsConfig();
   if (config.browserPath.trim().length > 0) {
     const result = await tryLaunchChromiumExecutable(config.browserPath.trim(), url, browserProfileRoot, existingProfilePath);
     if (result) {

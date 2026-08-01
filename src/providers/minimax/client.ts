@@ -1,25 +1,25 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
+import { MiniMaxApiError, UserVisibleError } from '../../errors';
+import { t } from '../../i18n';
+import { TtsSynthesisResult, TtsSynthesizer } from '../../types';
+import { createAbortController } from '../../utils';
 import { MiniMaxTtsConfig, normalizeApiHost } from './config';
-import { MiniMaxApiError, UserVisibleError } from './errors';
-import { t } from './i18n';
-import { TtsSynthesisResult, TtsSynthesizer } from './types';
-import { createAbortController } from './utils';
 
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export class MiniMaxClient implements TtsSynthesizer {
-  private readonly fingerprint: string;
-
   public constructor(
-    private readonly config: MiniMaxTtsConfig,
-    private readonly fetchImpl: FetchLike = fetch
-  ) {
-    this.fingerprint = createMiniMaxFingerprint(config);
+        private readonly configProvider: () => MiniMaxTtsConfig,
+        private readonly fetchImpl: FetchLike = fetch
+  ) { }
+
+  public get outputFormat(): MiniMaxTtsConfig['format'] {
+    return this.configProvider().format;
   }
 
   public configFingerprint(): string {
-    return this.fingerprint;
+    return createMiniMaxFingerprint(this.configProvider());
   }
 
   public async synthesizeSpeech(
@@ -29,6 +29,7 @@ export class MiniMaxClient implements TtsSynthesizer {
     pitch: number | undefined,
     vol: number | undefined,
     extraParams: Readonly<Record<string, unknown>> | undefined,
+    model: string | undefined,
     apiKey: string,
     token: vscode.CancellationToken
   ): Promise<TtsSynthesisResult> {
@@ -36,14 +37,15 @@ export class MiniMaxClient implements TtsSynthesizer {
       throw new UserVisibleError(t('minimax.requestCancelled'));
     }
 
+    const config = this.configProvider();
     const emotion = typeof extraParams?.emotion === 'string' ? extraParams.emotion : undefined;
-    const payload = buildMiniMaxTtsPayload(text, this.config, { voiceId, speed, pitch, vol, emotion });
+    const payload = buildMiniMaxTtsPayload(text, config, { voiceId, speed, pitch, vol, emotion, model });
 
     let timedOut = false;
-    const { controller, clear } = createAbortController(token, this.config.requestTimeoutMs, () => { timedOut = true; });
+    const { controller, clear } = createAbortController(token, config.requestTimeoutMs, () => { timedOut = true; });
 
     try {
-      const response = await this.fetchImpl(`${normalizeApiHost(this.config.apiHost)}/v1/t2a_v2`, {
+      const response = await this.fetchImpl(`${normalizeApiHost(config.apiHost)}/v1/t2a_v2`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -76,7 +78,7 @@ export class MiniMaxClient implements TtsSynthesizer {
       };
     } catch (error) {
       if (timedOut) {
-        throw new UserVisibleError(t('minimax.timeout', this.config.requestTimeoutMs / 1000));
+        throw new UserVisibleError(t('minimax.timeout', config.requestTimeoutMs / 1000));
       }
 
       if (token.isCancellationRequested) {
@@ -91,34 +93,35 @@ export class MiniMaxClient implements TtsSynthesizer {
 }
 
 interface MiniMaxBaseResponse {
-  readonly status_code?: number;
-  readonly status_msg?: string;
+    readonly status_code?: number;
+    readonly status_msg?: string;
 }
 
 interface MiniMaxTtsResponse {
-  readonly data?: {
-    readonly audio?: string;
-    readonly status?: number;
-  } | null;
-  readonly extra_info?: Record<string, unknown>;
-  readonly trace_id?: string;
-  readonly base_resp?: MiniMaxBaseResponse;
+    readonly data?: {
+        readonly audio?: string;
+        readonly status?: number;
+    } | null;
+    readonly extra_info?: Record<string, unknown>;
+    readonly trace_id?: string;
+    readonly base_resp?: MiniMaxBaseResponse;
 }
 
 export function buildMiniMaxTtsPayload(
   text: string,
   config: MiniMaxTtsConfig,
   params: {
-    voiceId?: string;
-    speed?: number;
-    pitch?: number;
-    vol?: number;
-    emotion?: string;
-  } = {}
+        voiceId?: string;
+        speed?: number;
+        pitch?: number;
+        vol?: number;
+        emotion?: string;
+        model?: string;
+    } = {}
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...config.extraRequestJson,
-    model: config.model,
+    model: coalesceString(params.model, config.model),
     text,
     stream: false,
     language_boost: config.languageBoost,

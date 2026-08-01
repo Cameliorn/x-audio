@@ -1,11 +1,11 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
-import { AudioFormat, MiniMaxTtsConfig, getMiniMaxConfig } from './config';
+import { TtsConfig, getTtsConfig } from './config';
 import { UserVisibleError } from './errors';
 import { deleteFileIfExists, fileExists } from './fileUtils';
 import { t } from './i18n';
 import { ApiKeyProvider } from './secretManager';
-import { TtsSynthesisResult, TtsSynthesizer } from './types';
+import { AudioFormat, TtsSynthesisResult, TtsSynthesizer } from './types';
 
 export interface SpeakRequest {
   readonly text: string;
@@ -14,7 +14,7 @@ export interface SpeakRequest {
   readonly speed?: number;
   readonly pitch?: number;
   readonly vol?: number;
-  /** 提供者专属参数（如 MiniMax 的 emotion），由各 TtsSynthesizer 自行解读 */
+  /** 渠道专属参数（如 MiniMax 的 emotion），由各 TtsSynthesizer 自行解读 */
   readonly extraParams?: Record<string, unknown>;
 }
 
@@ -27,7 +27,7 @@ export interface TtsAudioFile {
   readonly extraInfo?: Record<string, unknown>;
 }
 
-export type ConfigProvider = () => MiniMaxTtsConfig;
+export type ConfigProvider = () => TtsConfig;
 
 export class TtsService {
   private readonly inFlight = new Map<string, Promise<TtsAudioFile>>();
@@ -40,7 +40,7 @@ export class TtsService {
     private readonly globalStorageUri: vscode.Uri,
     private readonly apiKeyProvider: ApiKeyProvider,
     private readonly client: TtsSynthesizer,
-    private readonly configProvider: ConfigProvider = getMiniMaxConfig
+    private readonly configProvider: ConfigProvider = getTtsConfig
   ) { }
 
   public async synthesizeToFile(
@@ -67,16 +67,17 @@ export class TtsService {
       request.pitch,
       request.vol,
       request.extraParams,
+      request.model,
       this.client.configFingerprint()
     );
 
     if (config.cacheEnabled) {
-      const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${config.format}`);
+      const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${this.client.outputFormat}`);
 
       if (await fileExists(fileUri)) {
         return {
           uri: fileUri,
-          format: config.format,
+          format: this.client.outputFormat,
           cacheHit: true,
           characters: text.length
         };
@@ -99,8 +100,8 @@ export class TtsService {
       }
     }
 
-    // 缓存关闭时使用临时文件，避免磁盘堆积
-    const tempUri = vscode.Uri.joinPath(cacheRoot, `_temp.${config.format}`);
+    // 缓存关闭时使用临时文件，避免磁盘堆积；按缓存键命名，防止并发请求互相覆盖
+    const tempUri = vscode.Uri.joinPath(cacheRoot, `_temp-${cacheKey}.${this.client.outputFormat}`);
     await deleteFileIfExists(tempUri);
     return this.synthesizeUncachedToFile(request, text, config, cacheRoot, tempUri, token);
   }
@@ -108,7 +109,7 @@ export class TtsService {
   private async synthesizeUncachedToFile(
     request: SpeakRequest,
     text: string,
-    config: MiniMaxTtsConfig,
+    config: TtsConfig,
     cacheRoot: vscode.Uri,
     fileUri: vscode.Uri,
     token: vscode.CancellationToken
@@ -116,11 +117,12 @@ export class TtsService {
     const apiKey = await this.apiKeyProvider.requireApiKey();
     const result: TtsSynthesisResult = await this.client.synthesizeSpeech(
       text,
-      request.voiceId || config.voiceId,
+      request.voiceId ?? '',
       request.speed,
       request.pitch,
       request.vol,
       request.extraParams,
+      request.model,
       apiKey,
       token
     );
@@ -135,7 +137,7 @@ export class TtsService {
 
     return {
       uri: fileUri,
-      format: config.format,
+      format: this.client.outputFormat,
       cacheHit: false,
       characters: text.length,
       traceId: result.traceId,
@@ -151,6 +153,7 @@ function createCacheKey(
   pitch: number | undefined,
   vol: number | undefined,
   extraParams: Record<string, unknown> | undefined,
+  model: string | undefined,
   providerFingerprint: string
 ): string {
   const identity = {
@@ -160,6 +163,7 @@ function createCacheKey(
     pitch,
     vol,
     extraParams,
+    model,
     provider: providerFingerprint
   };
 
@@ -239,5 +243,3 @@ async function cleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepU
     totalBytes -= entry.size;
   }
 }
-
-export { cleanupAudioCache, createCacheKey };

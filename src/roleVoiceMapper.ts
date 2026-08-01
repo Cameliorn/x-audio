@@ -1,6 +1,6 @@
-import { RoleVoiceType, StorySegment, NARRATOR_NAME } from './roleAnalyzer';
+import { NARRATOR_NAME, RoleVoiceType, StorySegment } from './roleAnalyzer';
 
-export const CHARACTER_VOICE_STATE_KEY = 'minimaxTts.characterVoices';
+export const CHARACTER_VOICE_STATE_KEY = 'audioplugin.characterVoices';
 
 export interface RoleAssignment {
   readonly speaker: string;

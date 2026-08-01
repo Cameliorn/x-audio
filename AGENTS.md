@@ -1,6 +1,6 @@
-# MiniMax TTS — VS Code 扩展
+# AudioPlugin 朗读助手 — VS Code 扩展
 
-通过 MiniMax API 合成语音的 VS Code 扩展。提供命令和 Language Model Tool（`minimax_tts_speak`）供 Copilot 集成使用。
+通过可插拔 TTS 渠道（默认 MiniMax）合成语音的 VS Code 扩展。提供命令和 Language Model Tool（`audioplugin_speak`）供 Copilot 集成使用。
 
 ## 构建与测试
 
@@ -11,11 +11,14 @@
 ## 架构
 
 ```
-extension.ts            — 入口（activate/deactivate），注册命令与 LM tool
-  ├── config.ts          — VS Code 设置（`minimaxTts.*`）、默认值、规范化
-  ├── secretManager.ts   — SecretStorage 中的 API 密钥（vscode.SecretStorage）
-  ├── minimaxClient.ts   — MiniMax TTS API HTTP 客户端（基于 fetch）
-  ├── ttsService.ts      — 编排合成流程 + 文件缓存
+extension.ts            — 入口（activate/deactivate），注册命令与 LM tool，装配当前渠道
+  ├── config.ts          — 通用 VS Code 设置（`audioplugin.*`）、默认值
+  ├── providers/
+  │   ├── types.ts       — TtsProvider 渠道抽象接口
+  │   ├── registry.ts    — 渠道注册表，按 `audioplugin.provider` 选择当前渠道
+  │   └── minimax/       — MiniMax 渠道（默认）：config/client/apiKey/index
+  ├── secretManager.ts   — SecretStorage 中的 API 密钥（按渠道命名空间）
+  ├── ttsService.ts      — 编排合成流程 + 文件缓存（只依赖 TtsSynthesizer 接口）
   ├── roleAnalysisClient.ts — OpenAI 兼容 API 客户端（DeepSeek 等），用于角色分析
   ├── roleAnalyzer.ts    — 使用 Copilot 语言模型（vscode.lm）或外部 API 分析小说角色与对白
   ├── roleVoiceMapper.ts — 角色 → 音色 ID 映射（workspaceState 持久化角色覆盖）
@@ -26,11 +29,23 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
   ├── speakTextTool.ts   — vscode.LanguageModelTool 实现
   ├── externalAudioPlayer.ts — 外部 Chromium 浏览器音频播放
   ├── playerPage.ts      — 播放器 Webview HTML 页面生成
-  ├── i18n.ts            — 国际化消息定义（简体中文）
-  ├── apiKey.ts          — JWT/API 密钥规范化与检测
+  ├── i18n.ts            — 国际化消息定义（简体中文/英文）
+  ├── apiKey.ts          — 通用 API 密钥规范化
   ├── errors.ts          — 自定义错误类
-  └── types.ts           — 类型重导出 + MiniMaxSynthesizer 接口
+  └── types.ts           — AudioFormat + TtsSynthesizer 抽象接口
 ```
+
+## 渠道（Provider）扩展方式
+
+新增 TTS 渠道时：
+
+1. 在 `src/providers/<id>/` 下实现：
+   - `config.ts` — 渠道专属配置读取（`audioplugin.<id>.*`）
+   - `client.ts` — 实现 `TtsSynthesizer` 接口
+   - `apiKey.ts`（可选）— 密钥检测逻辑
+   - `index.ts` — 导出 `TtsProvider` 对象
+2. 在 `src/providers/registry.ts` 中注册
+3. 在 `package.json` 的 `audioplugin.provider` enum 中加入新渠道 ID
 
 ## 关键约定
 
@@ -39,7 +54,7 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
 - **VS Code 目标版本**：`^1.100.0`。使用了 `vscode.lm.registerTool`（Language Model Tool API）、`vscode.SecretStorage`、`vscode.WebviewPanel`。
 - **用户界面文本**使用简体中文。
 - **扩展实例间不共享状态** — 每次 activate 创建全新的服务实例。
-- **音频缓存**：合成的音频文件按内容哈希缓存在 `globalStorageUri/audio-cache/`。缓存由 `minimaxTts.cacheEnabled` 设置控制。
+- **音频缓存**：合成的音频文件按内容哈希缓存在 `globalStorageUri/audio-cache/`。缓存由 `audioplugin.cacheEnabled` 设置控制。
 
 ## 注意事项
 

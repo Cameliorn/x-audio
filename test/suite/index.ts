@@ -34,6 +34,7 @@ export async function run(): Promise<void> {
     }
 
     let failures = 0;
+    const failureDetails: string[] = [];
     for (const registeredTest of tests) {
       try {
         await registeredTest.run();
@@ -42,14 +43,22 @@ export async function run(): Promise<void> {
         failures += 1;
         console.error(`not ok - ${registeredTest.suiteName}: ${registeredTest.testName}`);
         console.error(error);
+        if (failureDetails.length < 5) {
+          failureDetails.push(
+            `${registeredTest.suiteName}: ${registeredTest.testName}\n${formatError(error)}`
+          );
+        }
       }
     }
 
     if (failures > 0) {
-      throw new Error(`${failures} tests failed.`);
+      throw new Error(`${failures} tests failed.\n${failureDetails.join('\n---\n')}`);
     }
 
-    writeTestMarker();
+    writeTestMarker('completed');
+  } catch (error) {
+    writeTestMarker(`failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
   } finally {
     await vscode.commands.executeCommand('workbench.action.closeWindow');
   }
@@ -70,9 +79,16 @@ function findTestFiles(root: string): string[] {
   });
 }
 
-function writeTestMarker(): void {
-  const markerPath = process.env.MINIMAX_TTS_TEST_MARKER;
+function writeTestMarker(content: string): void {
+  const markerPath = process.env.AUDIOPLUGIN_TEST_MARKER;
   if (markerPath) {
-    fs.writeFileSync(markerPath, 'completed');
+    fs.writeFileSync(markerPath, content);
   }
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? error.message;
+  }
+  return String(error);
 }

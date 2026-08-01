@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getMiniMaxConfig } from './config';
+import { getTtsConfig } from './config';
 import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { StorySegment, applyTextModifiers, splitTextIntoChunks } from './roleAnalyzer';
@@ -12,10 +12,13 @@ export interface RoleSpeechSegment extends StorySegment {
 
 export type SegmentProgressCallback = (completed: number, total: number, segment: RoleSpeechSegment) => void;
 
+/** 并发请求数上限，防止用户把配置调得过高后压垮 TTS 服务 */
+const MAX_CONCURRENT_REQUESTS = 8;
+
 export class MultiRoleTtsService {
   public constructor(
     private readonly ttsService: Pick<TtsService, 'synthesizeToFile'>,
-    private readonly configProvider: ConfigProvider = getMiniMaxConfig
+    private readonly configProvider: ConfigProvider = getTtsConfig
   ) { }
 
   public async synthesizeSegments(
@@ -43,27 +46,91 @@ export class MultiRoleTtsService {
       }
     }
 
-    const files: TtsAudioFile[] = [];
-    for (let index = 0; index < pieces.length; index++) {
-      if (token.isCancellationRequested) {
-        throw new vscode.CancellationError();
-      }
+    if (pieces.length === 0) {
+      throw new UserVisibleError(t('multiRoleTts.noSegments'));
+    }
 
-      const piece = pieces[index];
-      const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece, voiceParams);
-      const file = await this.ttsService.synthesizeToFile({
-        text: finalText,
-        voiceId: piece.voiceId,
-        speed,
-        pitch,
-        vol,
-        extraParams: emotion ? { emotion } : undefined
-      }, token);
-      files.push(file);
-      onProgress?.(index + 1, pieces.length, piece);
+    const files: TtsAudioFile[] = new Array<TtsAudioFile>(pieces.length);
+    let completed = 0;
+
+    // 内部令牌：转发外部取消，同时在任一片段失败时快速取消其余在途请求
+    const cts = new vscode.CancellationTokenSource();
+    const onExternalCancel = token.onCancellationRequested(() => cts.cancel());
+    if (token.isCancellationRequested) {
+      cts.cancel();
+    }
+
+    try {
+      const concurrency = clampConcurrency(this.configProvider().maxConcurrentRequests);
+      await runConcurrent(pieces.length, concurrency, async (index) => {
+        const piece = pieces[index];
+        const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece, voiceParams);
+        const file = await this.ttsService.synthesizeToFile({
+          text: finalText,
+          voiceId: piece.voiceId,
+          speed,
+          pitch,
+          vol,
+          extraParams: emotion ? { emotion } : undefined
+        }, cts.token);
+        files[index] = file;
+        completed++;
+        onProgress?.(completed, pieces.length, piece);
+      }, () => cts.cancel());
+    } finally {
+      onExternalCancel.dispose();
+      cts.dispose();
     }
 
     return files;
+  }
+}
+
+function clampConcurrency(value: number): number {
+  return Math.min(MAX_CONCURRENT_REQUESTS, Math.max(1, Math.floor(value)));
+}
+
+/**
+ * 固定并发数的任务池：最多同时运行 limit 个 worker，结果按传入顺序写入调用方。
+ * 任一 worker 失败时触发 onFirstError（用于取消在途请求），其余 worker 的取消
+ * 异常会被吞掉，最终只抛出第一个错误，避免未处理的 Promise 拒绝。
+ */
+async function runConcurrent(
+  total: number,
+  concurrency: number,
+  worker: (index: number) => Promise<void>,
+  onFirstError: () => void
+): Promise<void> {
+  let nextIndex = 0;
+  let failed = false;
+  let firstError: unknown;
+
+  async function run(): Promise<void> {
+    while (!failed && nextIndex < total) {
+      const index = nextIndex;
+      nextIndex++;
+      try {
+        await worker(index);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+          onFirstError();
+        }
+        return;
+      }
+    }
+  }
+
+  const workers: Promise<void>[] = [];
+  const workerCount = Math.min(concurrency, total);
+  for (let i = 0; i < workerCount; i++) {
+    workers.push(run());
+  }
+  await Promise.all(workers);
+
+  if (failed) {
+    throw firstError;
   }
 }
 

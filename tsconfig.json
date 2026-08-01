@@ -9,7 +9,7 @@
     "outDir": "out",
     "rootDir": ".",
     "sourceMap": true,
-    "declaration": true,
+    "declaration": false,
     "strict": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,

@@ -2,11 +2,11 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { DEFAULT_CONFIG, MiniMaxTtsConfig } from '../../src/config';
+import { DEFAULT_CONFIG, TtsConfig } from '../../src/config';
 import { UserVisibleError } from '../../src/errors';
 import { fileExists } from '../../src/fileUtils';
 import { ApiKeyProvider } from '../../src/secretManager';
-import { TtsService } from '../../src/ttsService';
+import { TtsAudioFile, TtsService } from '../../src/ttsService';
 import { TtsSynthesizer } from '../../src/types';
 
 suite('TtsService', () => {
@@ -14,6 +14,7 @@ suite('TtsService', () => {
     let calls = 0;
     const service = createService({
       client: {
+        outputFormat: 'mp3',
         configFingerprint: () => 'test-fingerprint',
         async synthesizeSpeech() {
           calls += 1;
@@ -43,6 +44,7 @@ suite('TtsService', () => {
         cacheEnabled: false
       },
       client: {
+        outputFormat: 'mp3',
         configFingerprint: () => 'test-fingerprint',
         async synthesizeSpeech() {
           calls += 1;
@@ -73,6 +75,7 @@ suite('TtsService', () => {
     });
     const service = createService({
       client: {
+        outputFormat: 'mp3',
         configFingerprint: () => 'test-fingerprint',
         async synthesizeSpeech() {
           calls += 1;
@@ -103,9 +106,10 @@ suite('TtsService', () => {
     const service = createService({
       config: {
         ...DEFAULT_CONFIG,
-        cacheMaxSizeMb: 0.00001
+        cacheMaxSizeMb: 0.0001
       },
       client: {
+        outputFormat: 'mp3',
         configFingerprint: () => 'test-fingerprint',
         async synthesizeSpeech() {
           calls += 1;
@@ -116,16 +120,20 @@ suite('TtsService', () => {
       }
     });
 
+    // 清理每新增 CLEANUP_INTERVAL 个缓存文件才执行一次，因此需要足够多的新文件触发
+    const texts = Array.from({ length: 10 }, (_unused, index) => `segment-${index}`);
     const tokenSource = new vscode.CancellationTokenSource();
-    const first = await service.synthesizeToFile({ text: 'first' }, tokenSource.token);
-    const second = await service.synthesizeToFile({ text: 'second' }, tokenSource.token);
+    const files: TtsAudioFile[] = [];
+    for (const text of texts) {
+      files.push(await service.synthesizeToFile({ text }, tokenSource.token));
+    }
     tokenSource.dispose();
 
-    assert.equal(await fileExists(first.uri), false);
-    assert.equal(await fileExists(second.uri), true);
+    assert.equal(await fileExists(files[0].uri), false);
+    assert.equal(await fileExists(files[files.length - 1].uri), true);
   });
 
-  test('rejects text longer than the MiniMax sync limit', async () => {
+  test('rejects text longer than the TTS sync limit', async () => {
     const service = createService();
     const tokenSource = new vscode.CancellationTokenSource();
 
@@ -140,13 +148,16 @@ suite('TtsService', () => {
     let observedVoiceId: string | undefined;
     let observedSpeed: number | undefined;
     let observedExtraParams: Record<string, unknown> | undefined;
+    let observedModel: string | undefined;
     const service = createService({
       client: {
+        outputFormat: 'mp3',
         configFingerprint: () => 'test-fingerprint',
-        async synthesizeSpeech(_text, voiceId, speed, _pitch, _vol, extraParams) {
+        async synthesizeSpeech(_text, voiceId, speed, _pitch, _vol, extraParams, model) {
           observedVoiceId = voiceId;
           observedSpeed = speed;
           observedExtraParams = extraParams as Record<string, unknown> | undefined;
+          observedModel = model;
           return {
             audio: Buffer.from('audio')
           };
@@ -159,26 +170,55 @@ suite('TtsService', () => {
       text: 'hello',
       voiceId: 'voice-a',
       speed: 1.5,
+      model: 'speech-2.8-hd',
       extraParams: { emotion: 'happy' }
     }, tokenSource.token);
     tokenSource.dispose();
 
     assert.equal(observedVoiceId, 'voice-a');
     assert.equal(observedSpeed, 1.5);
+    assert.equal(observedModel, 'speech-2.8-hd');
     assert.deepEqual(observedExtraParams, { emotion: 'happy' });
+  });
+
+  test('keeps separate cache entries for different request models', async () => {
+    let calls = 0;
+    const service = createService({
+      client: {
+        outputFormat: 'mp3',
+        configFingerprint: () => 'test-fingerprint',
+        async synthesizeSpeech() {
+          calls += 1;
+          return {
+            audio: Buffer.from('audio')
+          };
+        }
+      }
+    });
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const first = await service.synthesizeToFile({ text: 'hello', model: 'speech-2.8-turbo' }, tokenSource.token);
+    const second = await service.synthesizeToFile({ text: 'hello', model: 'speech-2.8-hd' }, tokenSource.token);
+    tokenSource.dispose();
+
+    assert.equal(calls, 2);
+    assert.equal(first.cacheHit, false);
+    assert.equal(second.cacheHit, false);
+    assert.notEqual(first.uri.toString(), second.uri.toString());
   });
 });
 
 interface CreateServiceOptions {
-  readonly config?: MiniMaxTtsConfig;
+  readonly config?: TtsConfig;
   readonly client?: TtsSynthesizer;
 }
 
 function createService(options: CreateServiceOptions = {}): TtsService {
   return new TtsService(
-    vscode.Uri.file(path.join(os.tmpdir(), `minimax-tts-test-${Date.now()}-${Math.random()}`)),
+    vscode.Uri.file(path.join(os.tmpdir(), `audioplugin-test-${Date.now()}-${Math.random()}`)),
     new StaticApiKeyProvider(),
     options.client ?? {
+      outputFormat: 'mp3',
       configFingerprint: () => 'test-fingerprint',
       async synthesizeSpeech() {
         return {

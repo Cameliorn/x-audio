@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { RoleAnalysisProvider, getMiniMaxConfig, getRoleAnalysisConfig } from './config';
+import { RoleAnalysisProvider, getRoleAnalysisConfig } from './config';
 import { MissingApiKeyError, UserVisibleError, getErrorMessage } from './errors';
 import { AudioPlayerPanel } from './externalAudioPlayer';
 import { t } from './i18n';
-import { MiniMaxClient } from './minimaxClient';
 import { MultiRoleTtsService, RoleSpeechSegment } from './multiRoleTtsService';
+import { getActiveProvider } from './providers/registry';
 import { RoleAnalysisClient, createRoleAnalysisClient } from './roleAnalysisClient';
 import { StorySegment, analyzeSceneType, analyzeStoryRoles } from './roleAnalyzer';
 import { confirmRoleAssignments } from './roleConfirmation';
@@ -18,34 +18,34 @@ import { findDirectoryVoiceConfig } from './voiceConfigFile';
 let audioPlayer: AudioPlayerPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-  const secretManager = new SecretManager(context.secrets);
-  const miniMaxClient = new MiniMaxClient(getMiniMaxConfig());
-  const ttsService = new TtsService(context.globalStorageUri, secretManager, miniMaxClient);
+  const provider = getActiveProvider();
+  const secretManager = new SecretManager(context.secrets, provider);
+  const client = provider.createClient();
+  const ttsService = new TtsService(context.globalStorageUri, secretManager, client);
   const multiRoleTtsService = new MultiRoleTtsService(ttsService);
-  const audioCacheRoot = vscode.Uri.joinPath(context.globalStorageUri, 'audio-cache');
 
-  audioPlayer = new AudioPlayerPanel(context, audioCacheRoot);
+  audioPlayer = new AudioPlayerPanel(context);
 
   const speak: SpeakExecutor = async (request, token) => {
     const audioFile = await ttsService.synthesizeToFile(request, token);
-    await audioPlayer?.play(audioFile, request.text);
+    await audioPlayer?.play(audioFile);
     return audioFile;
   };
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('minimaxTts.speakSelection', () => speakSelection(speak, secretManager)),
-    vscode.commands.registerCommand('minimaxTts.speakInput', () => speakInput(speak, secretManager)),
-    vscode.commands.registerCommand('minimaxTts.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, ttsService, multiRoleTtsService)),
-    vscode.commands.registerCommand('minimaxTts.setApiKey', () => secretManager.promptAndStoreApiKey()),
-    vscode.commands.registerCommand('minimaxTts.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
-    vscode.commands.registerCommand('minimaxTts.pause', () => {
+    vscode.commands.registerCommand('audioplugin.speakSelection', () => speakSelection(speak, secretManager)),
+    vscode.commands.registerCommand('audioplugin.speakInput', () => speakInput(speak, secretManager)),
+    vscode.commands.registerCommand('audioplugin.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, ttsService, multiRoleTtsService)),
+    vscode.commands.registerCommand('audioplugin.setApiKey', () => secretManager.promptAndStoreApiKey()),
+    vscode.commands.registerCommand('audioplugin.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
+    vscode.commands.registerCommand('audioplugin.pause', () => {
       audioPlayer?.pause();
     }),
-    vscode.commands.registerCommand('minimaxTts.stop', () => {
+    vscode.commands.registerCommand('audioplugin.stop', () => {
       audioPlayer?.stop();
     }),
-    vscode.commands.registerCommand('minimaxTts.setSoundEffectsDir', () => setSoundEffectsDir()),
-    vscode.lm.registerTool('minimax_tts_speak', new SpeakTextTool(speak))
+    vscode.commands.registerCommand('audioplugin.setSoundEffectsDir', () => setSoundEffectsDir()),
+    vscode.lm.registerTool('audioplugin_speak', new SpeakTextTool(speak))
   );
 }
 
@@ -61,11 +61,7 @@ async function speakSelection(speak: SpeakExecutor, secretManager: SecretManager
     return;
   }
 
-  const selectedText = editor.selections
-    .filter(selection => !selection.isEmpty)
-    .map(selection => editor.document.getText(selection))
-    .join('\n')
-    .trim();
+  const selectedText = getSelectedText(editor);
 
   if (selectedText.length === 0) {
     vscode.window.showWarningMessage(t('extension.noSelection'));
@@ -112,11 +108,7 @@ async function speakDocumentWithRoles(
     return;
   }
 
-  const selectedText = editor.selections
-    .filter(selection => !selection.isEmpty)
-    .map(selection => editor.document.getText(selection))
-    .join('\n')
-    .trim();
+  const selectedText = getSelectedText(editor);
   const text = selectedText.length > 0 ? selectedText : editor.document.getText().trim();
   if (text.length === 0) {
     vscode.window.showWarningMessage(t('extension.noText'));
@@ -126,7 +118,7 @@ async function speakDocumentWithRoles(
   let segments: StorySegment[];
   let roleAnalysisClientForScene: RoleAnalysisClient | undefined;
   try {
-    const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('minimaxTts'));
+    const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('audioplugin'));
     const roleAnalysisClient = createRoleAnalysisClient(roleAnalysisConfig, context.secrets);
     roleAnalysisClientForScene = roleAnalysisClient;
     const modelDisplay = roleAnalysisConfig.provider === 'copilot'
@@ -138,17 +130,18 @@ async function speakDocumentWithRoles(
       cancellable: true
     }, async (progress, token) => analyzeStoryRoles(text, roleAnalysisClient, token, roleProgress =>
       progress.report({ message: t('extension.roleAnalysisChunk', roleProgress.completedChunks, roleProgress.totalChunks) })
-      , roleAnalysisConfig.customPrompt));
+    , roleAnalysisConfig.customPrompt));
   } catch (error) {
     await handleError(error, secretManager);
     return;
   }
 
-  // 场景分析：用 DeepSeek 判断文本氛围，自动匹配背景音效
+  // 场景分析：判断文本氛围，自动匹配背景音效
   let sceneSfxFile: string | undefined;
   if (roleAnalysisClientForScene) {
+    const sceneToken = new vscode.CancellationTokenSource();
     try {
-      const sceneType = await analyzeSceneType(text, roleAnalysisClientForScene, new vscode.CancellationTokenSource().token);
+      const sceneType = await analyzeSceneType(text, roleAnalysisClientForScene, sceneToken.token);
       if (sceneType !== 'none') {
         const picked = await pickSoundEffectForScene(sceneType);
         if (picked) {
@@ -158,19 +151,21 @@ async function speakDocumentWithRoles(
     } catch (err) {
       // 场景分析失败不影响主流程，沿用已有的音效设置
       // eslint-disable-next-line no-console
-      console.warn('[MiniMax TTS] 场景分析失败：', err);
+      console.warn('[AudioPlugin] 场景分析失败：', err);
       vscode.window.showInformationMessage(t('extension.sceneAnalysisFailed'));
+    } finally {
+      sceneToken.dispose();
     }
   }
 
-  const config = getMiniMaxConfig();
+  const providerConfig = getActiveProvider().readConfig();
   const wsOverrides = context.workspaceState.get<Record<string, string>>(CHARACTER_VOICE_STATE_KEY, {});
   const dirConfig = await findDirectoryVoiceConfig(editor.document.uri);
   const dirCharOverrides = dirConfig?.characterVoices ?? {};
   const dirRoleOverrides = dirConfig?.roleTypeVoices ?? {};
   const overrides = { ...wsOverrides, ...dirCharOverrides };
-  const mergedRoleVoices = { ...config.roleVoices, ...dirRoleOverrides };
-  const assignments = assignVoices(segments, mergedRoleVoices, overrides, config.voiceId);
+  const mergedRoleVoices = { ...providerConfig.roleVoices, ...dirRoleOverrides };
+  const assignments = assignVoices(segments, mergedRoleVoices, overrides, providerConfig.voiceId);
   const totalCharacters = segments.reduce((sum, segment) => sum + segment.text.length, 0);
 
   const confirmed = await confirmRoleAssignments(assignments, totalCharacters, dirCharOverrides, async (speaker, voiceId) => {
@@ -181,8 +176,13 @@ async function speakDocumentWithRoles(
       text: '试听片段，测试当前所选音色的朗读效果。',
       voiceId
     };
-    const file = await ttsService.synthesizeToFile(previewRequest, new vscode.CancellationTokenSource().token);
-    await audioPlayer?.play(file, previewRequest.text);
+    const previewToken = new vscode.CancellationTokenSource();
+    try {
+      const file = await ttsService.synthesizeToFile(previewRequest, previewToken.token);
+      await audioPlayer?.play(file);
+    } finally {
+      previewToken.dispose();
+    }
   });
   if (!confirmed) {
     return;
@@ -191,7 +191,7 @@ async function speakDocumentWithRoles(
   const voiceBySpeaker = new Map(confirmed.map(assignment => [assignment.speaker, assignment.voiceId]));
   const speechSegments: RoleSpeechSegment[] = segments.map(segment => ({
     ...segment,
-    voiceId: voiceBySpeaker.get(segment.speaker) ?? config.voiceId
+    voiceId: voiceBySpeaker.get(segment.speaker) ?? providerConfig.voiceId
   }));
 
   try {
@@ -201,7 +201,7 @@ async function speakDocumentWithRoles(
       cancellable: true
     }, async (progress, token) => multiRoleTtsService.synthesizeSegments(speechSegments, token, (completed, total, segment) =>
       progress.report({ message: `${completed}/${total} ${segment.speaker}` })
-      , dirConfig?.voiceParams));
+    , dirConfig?.voiceParams));
 
     await audioPlayer?.playQueue(files, sceneSfxFile);
     vscode.window.setStatusBarMessage(t('extension.synthesizeComplete', files.length, totalCharacters), 5000);
@@ -211,6 +211,14 @@ async function speakDocumentWithRoles(
     }
     await handleError(error, secretManager);
   }
+}
+
+function getSelectedText(editor: vscode.TextEditor): string {
+  return editor.selections
+    .filter(selection => !selection.isEmpty)
+    .map(selection => editor.document.getText(selection))
+    .join('\n')
+    .trim();
 }
 
 interface SpeakWithProgressOptions {
@@ -257,7 +265,7 @@ async function handleError(error: unknown, secretManager: SecretManager): Promis
 }
 
 async function configureRoleAnalysis(secrets: vscode.SecretStorage): Promise<void> {
-  const settings = vscode.workspace.getConfiguration('minimaxTts');
+  const settings = vscode.workspace.getConfiguration('audioplugin');
   const currentProvider = settings.get<string>('roleAnalysis.provider', 'openai');
 
   // Step 1: 选择提供商
@@ -374,7 +382,7 @@ async function configureOpenaiProvider(
   await settings.update('roleAnalysis.openaiModel', model.trim(), vscode.ConfigurationTarget.Global);
 
   if (apiKey.trim().length > 0) {
-    await secrets.store('minimaxTts.roleAnalysisApiKey', apiKey.trim());
+    await secrets.store('audioplugin.roleAnalysisApiKey', apiKey.trim());
   }
 
   vscode.window.showInformationMessage(t('extension.roleAnalysisConfigured', model, endpoint.trim()));

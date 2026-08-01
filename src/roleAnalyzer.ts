@@ -26,18 +26,6 @@ export type StoryEmotion = 'neutral' | 'happy' | 'sad' | 'angry' | 'fearful' | '
 
 export const STORY_EMOTIONS: readonly StoryEmotion[] = ['neutral', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'calm', 'fluent'];
 
-export const STORY_EMOTION_LABELS: Readonly<Record<StoryEmotion, string>> = {
-  neutral: '中性',
-  happy: '高兴',
-  sad: '悲伤',
-  angry: '愤怒',
-  fearful: '害怕',
-  disgusted: '厌恶',
-  surprised: '惊讶',
-  calm: '平静',
-  fluent: '生动'
-};
-
 /**
  * MiniMax Speech 2.8 支持的语气词标签（sound tags）。
  * 模型会将文本中的 `(tag)` 渲染为实际音效。
@@ -237,7 +225,18 @@ export function parseRoleAnalysisResponse(raw: string): StorySegment[] {
     const soundTags = normalizeSoundTags(record.soundTags);
     const pauseBefore = normalizePauseBefore(record.pauseBefore);
     const transition = normalizeTransition(record.transition);
-    segments.push({ speaker, voice, text, emotion, speed, pitch, vol, soundTags, pauseBefore, transition });
+    segments.push({
+      speaker,
+      voice,
+      text,
+      ...(emotion !== undefined ? { emotion } : {}),
+      ...(speed !== undefined ? { speed } : {}),
+      ...(pitch !== undefined ? { pitch } : {}),
+      ...(vol !== undefined ? { vol } : {}),
+      ...(soundTags !== undefined ? { soundTags } : {}),
+      ...(pauseBefore !== undefined ? { pauseBefore } : {}),
+      ...(transition !== undefined ? { transition } : {})
+    });
   }
 
   if (segments.length === 0) {
