@@ -1,8 +1,7 @@
 {
-    "audioplugin.description": "AudioPlugin 朗读助手：在 VS Code 中朗读选中文本、输入文本或 Agent 提供的文本。默认使用 MiniMax 渠道合成语音。",
+    "audioplugin.description": "AudioPlugin 朗读助手：在 VS Code 中朗读选中文本或 Agent 提供的文本。默认使用 MiniMax 渠道合成语音。",
     "audioplugin.commands.category": "AudioPlugin 朗读助手",
     "audioplugin.commands.speakSelection.title": "朗读选中文本",
-    "audioplugin.commands.speakInput.title": "朗读输入文本",
     "audioplugin.commands.speakDocumentWithRoles.title": "分角色朗读选中文本",
     "audioplugin.commands.setApiKey.title": "设置密钥",
     "audioplugin.commands.pause.title": "暂停 / 恢复播放",

@@ -51,12 +51,6 @@
         "icon": "$(unmute)"
       },
       {
-        "command": "audioplugin.speakInput",
-        "title": "%audioplugin.commands.speakInput.title%",
-        "category": "%audioplugin.commands.category%",
-        "icon": "$(comment-discussion)"
-      },
-      {
         "command": "audioplugin.speakDocumentWithRoles",
         "title": "%audioplugin.commands.speakDocumentWithRoles.title%",
         "category": "%audioplugin.commands.category%",
@@ -97,10 +91,6 @@
       "commandPalette": [
         {
           "command": "audioplugin.speakSelection",
-          "when": "false"
-        },
-        {
-          "command": "audioplugin.speakInput",
           "when": "false"
         },
         {

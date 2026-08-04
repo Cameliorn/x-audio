@@ -36,7 +36,6 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('audioplugin.speakSelection', () => speakSelection(speak, secretManager)),
-    vscode.commands.registerCommand('audioplugin.speakInput', () => speakInput(speak, secretManager)),
     vscode.commands.registerCommand('audioplugin.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, service, multiRoleTtsService)),
     vscode.commands.registerCommand('audioplugin.setApiKey', () => secretManager.promptAndStoreApiKey()),
     vscode.commands.registerCommand('audioplugin.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
@@ -78,26 +77,6 @@ async function speakSelection(speak: SpeakExecutor, secretManager: SecretManager
     speak,
     secretManager,
     text: selectedText
-  });
-}
-
-async function speakInput(speak: SpeakExecutor, secretManager: SecretManager): Promise<void> {
-  const text = await vscode.window.showInputBox({
-    title: t('extension.speakInputTitle'),
-    prompt: t('extension.speakInputPrompt'),
-    ignoreFocusOut: true,
-    validateInput: value => value.trim().length === 0 ? t('extension.textEmpty') : undefined
-  });
-
-  if (!text) {
-    return;
-  }
-
-  await runSpeakWithProgress({
-    title: t('extension.speakProgress'),
-    speak,
-    secretManager,
-    text
   });
 }
 
@@ -214,7 +193,7 @@ async function speakDocumentWithRoles(
       cancellable: true
     }, async (progress, token) => multiRoleTtsService.synthesizeSegments(speechSegments, token, (completed, total, segment) =>
       progress.report({ message: `${completed}/${total} ${segment.speaker}` })
-    , dirConfig?.voiceParams));
+      , dirConfig?.voiceParams));
 
     await audioPlayer?.playQueue(files, sceneSfxFile);
     vscode.window.setStatusBarMessage(t('extension.synthesizeComplete', files.length, totalCharacters), 5000);

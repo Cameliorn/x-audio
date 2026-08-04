@@ -1,8 +1,7 @@
 {
-    "audioplugin.description": "AudioPlugin Reader: read selected text, input text, or agent-provided text aloud in VS Code. MiniMax is the default TTS provider.",
+    "audioplugin.description": "AudioPlugin Reader: read selected text or agent-provided text aloud in VS Code. MiniMax is the default TTS provider.",
     "audioplugin.commands.category": "AudioPlugin Reader",
     "audioplugin.commands.speakSelection.title": "Read Selected Text",
-    "audioplugin.commands.speakInput.title": "Read Input Text",
     "audioplugin.commands.speakDocumentWithRoles.title": "Read Selected Text with Character Voices",
     "audioplugin.commands.setApiKey.title": "Set API Key",
     "audioplugin.commands.pause.title": "Pause / Resume",

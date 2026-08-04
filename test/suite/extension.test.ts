@@ -8,7 +8,6 @@ suite('Extension', () => {
 
     const commands = await vscode.commands.getCommands(true);
     assert.ok(commands.includes('audioplugin.speakSelection'));
-    assert.ok(commands.includes('audioplugin.speakInput'));
     assert.ok(commands.includes('audioplugin.setApiKey'));
     assert.ok(commands.includes('audioplugin.stop'));
     assert.ok(!commands.includes('audioplugin.clearApiKey'));
@@ -29,10 +28,6 @@ suite('Extension', () => {
     assert.deepEqual(commandPaletteMenus, [
       {
         command: 'audioplugin.speakSelection',
-        when: 'false'
-      },
-      {
-        command: 'audioplugin.speakInput',
         when: 'false'
       },
       {
