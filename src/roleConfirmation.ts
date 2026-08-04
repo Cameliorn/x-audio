@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import { t } from './i18n';
-import { NARRATOR_NAME, ROLE_VOICE_LABELS } from './roleAnalyzer';
+import { NARRATOR_NAME, ROLE_VOICE_LABELS } from './roleAnalyzerPrompts';
 import { RoleAssignment } from './roleVoiceMapper';
 
 interface RoleQuickPickItem extends vscode.QuickPickItem {
-    readonly itemKind: 'action' | 'role';
-    readonly assignment?: RoleAssignment;
+  readonly itemKind: 'action' | 'role';
+  readonly assignment?: RoleAssignment;
 }
 
 export async function confirmRoleAssignments(

@@ -1,7 +1,11 @@
 import { t } from './i18n';
 
 export class UserVisibleError extends Error {
-  public constructor(message: string) {
+  public constructor(
+    message: string,
+    /** 程序可识别的错误分类（如用于区分解析失败与网络错误） */
+    public readonly code?: string
+  ) {
     super(message);
     this.name = 'UserVisibleError';
   }

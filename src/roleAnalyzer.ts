@@ -1,41 +1,22 @@
 import * as vscode from 'vscode';
-import { UserVisibleError } from './errors';
+import { UserVisibleError, getErrorMessage } from './errors';
 import { t } from './i18n';
 import { RoleAnalysisClient } from './roleAnalysisClient';
+import {
+  NARRATOR_NAME,
+  ROLE_VOICE_TYPES,
+  RoleVoiceType,
+  SCENE_TYPES,
+  STORY_EMOTIONS,
+  SceneType,
+  StoryEmotion,
+  TONE_TAGS,
+  ToneTag,
+  UNKNOWN_SPEAKER_NAME,
+  buildRoleAnalysisMessages,
+  buildSceneTypePrompt
+} from './roleAnalyzerPrompts';
 import { clampNumber } from './utils';
-
-export type RoleVoiceType = 'narrator' | 'male' | 'female' | 'girl' | 'boy' | 'child' | 'elderly';
-
-export const ROLE_VOICE_TYPES: readonly RoleVoiceType[] = ['narrator', 'male', 'female', 'girl', 'boy', 'child', 'elderly'];
-
-export const ROLE_VOICE_LABELS: Readonly<Record<RoleVoiceType, string>> = {
-  narrator: '旁白',
-  male: '成年男性',
-  female: '成年女性',
-  girl: '少女',
-  boy: '少年',
-  child: '幼童',
-  elderly: '老人'
-};
-
-export const NARRATOR_NAME = '旁白';
-export const UNKNOWN_SPEAKER_NAME = '未知角色';
-
-/** MiniMax API voice_setting.emotion 支持的值（speech-2.8 系列不支持 whisper）。 */
-export type StoryEmotion = 'neutral' | 'happy' | 'sad' | 'angry' | 'fearful' | 'disgusted' | 'surprised' | 'calm' | 'fluent';
-
-export const STORY_EMOTIONS: readonly StoryEmotion[] = ['neutral', 'happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'calm', 'fluent'];
-
-/**
- * MiniMax Speech 2.8 支持的语气词标签（sound tags）。
- * 模型会将文本中的 `(tag)` 渲染为实际音效。
- */
-export const TONE_TAGS = [
-  'laughs', 'chuckle', 'coughs', 'clear-throat', 'groans', 'breath',
-  'pant', 'inhale', 'exhale', 'gasps', 'sniffs', 'sighs',
-  'snorts', 'burps', 'lip-smacking', 'humming'
-] as const;
-export type ToneTag = typeof TONE_TAGS[number];
 
 /**
  * 将 soundTags 和 pauseBefore 应用到文本中，生成发送给 TTS API 的最终文本。
@@ -124,22 +105,32 @@ async function analyzeChunk(
   customPrompt: string
 ): Promise<StorySegment[]> {
   let lastError: unknown;
+  let retryFeedback: string | undefined;
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_CHUNK; attempt++) {
     if (token.isCancellationRequested) {
       throw new vscode.CancellationError();
     }
 
-    const prompt = buildAnalysisPrompt(chunk, knownCharacters, attempt > 0, customPrompt);
+    const messages = buildRoleAnalysisMessages(customPrompt, {
+      chunk,
+      knownCharacters,
+      strictJsonOnly: attempt > 0,
+      retryFeedback
+    });
 
     try {
-      const raw = await client.sendRequest(prompt, token);
+      const raw = await client.sendRequest(messages, token);
       return parseRoleAnalysisResponse(raw);
     } catch (error) {
       if (error instanceof vscode.CancellationError) {
         throw error;
       }
 
+      // 仅解析类失败注入反馈，让模型自行修正；网络类错误重试即可
+      if (isRoleAnalysisParseError(error)) {
+        retryFeedback = t('roleAnalysis.retryFeedback', getErrorMessage(error));
+      }
       lastError = error;
     }
   }
@@ -147,58 +138,32 @@ async function analyzeChunk(
   throw lastError instanceof Error ? lastError : new UserVisibleError(t('roleAnalysis.noValidResult'));
 }
 
-function buildAnalysisPrompt(
-  chunk: string,
-  knownCharacters: Readonly<Record<string, RoleVoiceType>>,
-  strictJsonOnly: boolean,
-  customPrompt: string
-): string {
-  const knownJson = JSON.stringify(knownCharacters);
-  const strictReminder = strictJsonOnly ? '\n再次提醒：只输出 JSON 数组，不要输出任何其他内容。' : '';
-  const emotions = (STORY_EMOTIONS as readonly string[]).join('、');
-  const toneTags = (TONE_TAGS as readonly string[]).join('、');
-  const unknownSpeaker = UNKNOWN_SPEAKER_NAME;
+const PARSE_ERROR_CODE = 'role-analysis-parse';
 
-  return replacePlaceholders(customPrompt, { chunk, knownJson, strictReminder, emotions, toneTags, unknownSpeaker });
+function isRoleAnalysisParseError(error: unknown): boolean {
+  return error instanceof UserVisibleError && error.code === PARSE_ERROR_CODE;
 }
 
-interface PromptPlaceholders {
-  readonly chunk: string;
-  readonly knownJson: string;
-  readonly strictReminder: string;
-  readonly emotions: string;
-  readonly toneTags: string;
-  readonly unknownSpeaker: string;
-}
-
-function replacePlaceholders(template: string, p: PromptPlaceholders): string {
-  // escape any {{…}} in user-supplied text to prevent placeholder injection
-  const escapeBraces = (s: string) => s.replace(/\{\{/g, '\\{\\{').replace(/\}\}/g, '\\}\\}');
-  return template
-    .replace(/\{\{text\}\}/g, escapeBraces(p.chunk))
-    .replace(/\{\{knownCharacters\}\}/g, p.knownJson)
-    .replace(/\{\{strictReminder\}\}/g, p.strictReminder)
-    .replace(/\{\{emotions\}\}/g, p.emotions)
-    .replace(/\{\{toneTags\}\}/g, p.toneTags)
-    .replace(/\{\{unknownSpeaker\}\}/g, p.unknownSpeaker);
+function raiseParseError(message: string): never {
+  throw new UserVisibleError(message, PARSE_ERROR_CODE);
 }
 
 export function parseRoleAnalysisResponse(raw: string): StorySegment[] {
   const start = raw.indexOf('[');
   const end = raw.lastIndexOf(']');
   if (start < 0 || end <= start) {
-    throw new UserVisibleError(t('roleAnalysis.invalidJson'));
+    raiseParseError(t('roleAnalysis.invalidJson'));
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw.slice(start, end + 1));
   } catch {
-    throw new UserVisibleError(t('roleAnalysis.parseError'));
+    raiseParseError(t('roleAnalysis.parseError'));
   }
 
   if (!Array.isArray(parsed)) {
-    throw new UserVisibleError(t('roleAnalysis.notArray'));
+    raiseParseError(t('roleAnalysis.notArray'));
   }
 
   const segments: StorySegment[] = [];
@@ -240,7 +205,7 @@ export function parseRoleAnalysisResponse(raw: string): StorySegment[] {
   }
 
   if (segments.length === 0) {
-    throw new UserVisibleError(t('roleAnalysis.emptyResult'));
+    raiseParseError(t('roleAnalysis.emptyResult'));
   }
 
   return mergeConsecutiveSegments(segments);
@@ -305,7 +270,7 @@ function normalizePauseBefore(value: unknown): number | undefined {
 function normalizeTransition(value: unknown): string | undefined {
   if (typeof value === 'string') {
     const trimmed = value.trim();
-    // 拒绝过长或过短的过渡语
+    // 上限 30 字符，比提示词要求的 15 字宽松，给模型轻微超长留容错
     if (trimmed.length > 0 && trimmed.length <= 30) {
       return trimmed;
     }
@@ -417,33 +382,15 @@ function findSplitPoint(text: string, maxCharacters: number): number {
   return maxCharacters;
 }
 
-export type SceneType = 'intimate' | 'action' | 'ambience' | 'horror' | 'daily' | 'none';
-
-const SCENE_TYPES: readonly SceneType[] = ['intimate', 'action', 'ambience', 'horror', 'daily', 'none'];
-
-const SCENE_TYPE_PROMPT = `分析以下文本的整体场景氛围，从以下分类中选择最匹配的一个（只输出分类名，不要其他任何内容）：
-- intimate（亲密/情欲场景：床戏、暧昧、肢体接触、呻吟等）
-- action（动作/战斗/冲突/追逐等）
-- ambience（环境氛围：雨景、夜景、自然描写、旅途等）
-- horror（恐怖/悬疑/紧张/惊悚场景）
-- daily（日常对话/生活场景/普通叙事）
-- none（以上均不匹配，不需要背景音效）
-
-待分析文本：
-"""
-{text}
-"""`;
-
 export async function analyzeSceneType(
   text: string,
   client: RoleAnalysisClient,
   token: vscode.CancellationToken
 ): Promise<SceneType> {
-  // 截取前 4000 字用于场景分析，足够判断整体氛围
-  const truncated = text.slice(0, 4000);
-  const prompt = SCENE_TYPE_PROMPT.replace('{text}', truncated);
-
-  const raw = await client.sendRequest(prompt, token);
+  const raw = await client.sendRequest(
+    [{ role: 'user', content: buildSceneTypePrompt(text) }],
+    token
+  );
   const category = raw.trim().toLowerCase();
 
   if ((SCENE_TYPES as readonly string[]).includes(category)) {

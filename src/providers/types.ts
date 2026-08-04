@@ -1,4 +1,4 @@
-import { RoleVoiceType } from '../roleAnalyzer';
+import { RoleVoiceType } from '../roleAnalyzerPrompts';
 import { TtsSynthesizer } from '../types';
 
 /** 渠道共用的配置字段（分角色朗读、缓存等通用逻辑依赖） */

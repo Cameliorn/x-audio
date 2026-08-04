@@ -1,24 +1,24 @@
 import * as vscode from 'vscode';
 import { t } from './i18n';
-import { ROLE_VOICE_TYPES, RoleVoiceType } from './roleAnalyzer';
+import { ROLE_VOICE_TYPES, RoleVoiceType } from './roleAnalyzerPrompts';
 import { clampNumber, isRecord } from './utils';
 
 const VOICE_CONFIG_FILE_NAME = '.ttsvoices.json';
 const ROLE_VOICES_KEY = '@roleVoices';
 
 export interface VoiceParams {
-    readonly speed?: number;
-    readonly pitch?: number;
-    readonly vol?: number;
+  readonly speed?: number;
+  readonly pitch?: number;
+  readonly vol?: number;
 }
 
 export interface DirectoryVoiceConfig {
-    /** 角色名 → 音色 ID 映射（如 “张三” → “female-yujie”） */
-    readonly characterVoices: Record<string, string>;
-    /** 角色类型 → 音色 ID 映射（如 “male” → “female-yujie”） */
-    readonly roleTypeVoices: Partial<Record<RoleVoiceType, string>>;
-    /** 角色名/角色类型 → 语速/声调/音量覆盖（优先级高于 LLM 分析结果） */
-    readonly voiceParams: Record<string, VoiceParams>;
+  /** 角色名 → 音色 ID 映射（如 “张三” → “female-yujie”） */
+  readonly characterVoices: Record<string, string>;
+  /** 角色类型 → 音色 ID 映射（如 “male” → “female-yujie”） */
+  readonly roleTypeVoices: Partial<Record<RoleVoiceType, string>>;
+  /** 角色名/角色类型 → 语速/声调/音量覆盖（优先级高于 LLM 分析结果） */
+  readonly voiceParams: Record<string, VoiceParams>;
 }
 
 function emptyConfig(): DirectoryVoiceConfig {
@@ -114,8 +114,8 @@ async function tryReadVoiceConfig(fileUri: vscode.Uri): Promise<DirectoryVoiceCo
 }
 
 interface ParsedConfigValue {
-    readonly voiceId?: string;
-    readonly params?: VoiceParams;
+  readonly voiceId?: string;
+  readonly params?: VoiceParams;
 }
 
 function parseConfigValue(value: unknown): ParsedConfigValue {

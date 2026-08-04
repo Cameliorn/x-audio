@@ -41,6 +41,7 @@ const zhCn: MessageBundle = {
   'roleAnalysis.copilotTokenizerError': '模型「{0}」缺少 tokenizer 元数据（VS Code 的 Copilot 已知问题），无法计算 token。请重新运行“AudioPlugin 朗读助手：配置角色分析”选择其他模型，或改用 OpenAI 兼容接口，并确保 VS Code 与 GitHub Copilot 扩展均为最新版本（当前 {1}）。',
 
   // roleAnalyzer
+  'roleAnalysis.retryFeedback': '上次尝试的输出无法解析（{0}）。请严格按格式要求只输出 JSON 数组，修正错误后重新输出。',
   'roleAnalysis.noText': '没有可分析的文本。',
   'roleAnalysis.invalidJson': '语言模型未返回有效的 JSON 数组。',
   'roleAnalysis.parseError': '无法解析语言模型返回的 JSON。',
@@ -160,6 +161,7 @@ const en: MessageBundle = {
   'roleAnalysis.copilotModelNotFound': 'Role analysis model "{0}" is not available. Please re-select it in Copilot.',
   'roleAnalysis.copilotTokenizerError': 'Model "{0}" is missing tokenizer metadata (a known Copilot issue in VS Code) and cannot compute tokens. Re-run "AudioPlugin Reader: Configure Role Analysis" to pick another model, or use the OpenAI-compatible provider instead, and make sure VS Code and the GitHub Copilot extension are up to date (current {1}).',
 
+  'roleAnalysis.retryFeedback': 'The previous output could not be parsed ({0}). Output only a JSON array exactly matching the required format, then try again.',
   'roleAnalysis.noText': 'No text to analyze.',
   'roleAnalysis.invalidJson': 'Language model did not return a valid JSON array.',
   'roleAnalysis.parseError': 'Failed to parse the language model JSON response.',

@@ -1,4 +1,5 @@
-import { NARRATOR_NAME, RoleVoiceType, StorySegment } from './roleAnalyzer';
+import { StorySegment } from './roleAnalyzer';
+import { NARRATOR_NAME, RoleVoiceType } from './roleAnalyzerPrompts';
 
 export const CHARACTER_VOICE_STATE_KEY = 'audioplugin.characterVoices';
 

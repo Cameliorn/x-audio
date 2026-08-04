@@ -1,32 +1,32 @@
 import * as vscode from 'vscode';
 import { UserVisibleError } from '../../errors';
 import { t } from '../../i18n';
-import { ROLE_VOICE_TYPES, RoleVoiceType } from '../../roleAnalyzer';
+import { ROLE_VOICE_TYPES, RoleVoiceType } from '../../roleAnalyzerPrompts';
 import { AudioFormat } from '../../types';
 import { isRecord } from '../../utils';
 import { TtsProviderConfig } from '../types';
 
 export interface MiniMaxTtsConfig extends TtsProviderConfig {
-    readonly apiHost: string;
-    readonly model: string;
-    readonly format: AudioFormat;
-    readonly sampleRate: number;
-    readonly bitrate: number;
-    readonly channel: number;
-    readonly speed: number;
-    readonly vol: number;
-    readonly pitch: number;
-    readonly languageBoost: string;
-    readonly pronunciationTone: readonly string[];
-    readonly voiceModifyEnabled: boolean;
-    readonly voiceModifyPitch: number;
-    readonly voiceModifyIntensity: number;
-    readonly voiceModifyTimbre: number;
-    readonly voiceModifySoundEffects: string;
-    readonly subtitleEnable: boolean;
-    readonly subtitleType: 'sentence' | 'word';
-    readonly extraRequestJson: Readonly<Record<string, unknown>>;
-    readonly requestTimeoutMs: number;
+  readonly apiHost: string;
+  readonly model: string;
+  readonly format: AudioFormat;
+  readonly sampleRate: number;
+  readonly bitrate: number;
+  readonly channel: number;
+  readonly speed: number;
+  readonly vol: number;
+  readonly pitch: number;
+  readonly languageBoost: string;
+  readonly pronunciationTone: readonly string[];
+  readonly voiceModifyEnabled: boolean;
+  readonly voiceModifyPitch: number;
+  readonly voiceModifyIntensity: number;
+  readonly voiceModifyTimbre: number;
+  readonly voiceModifySoundEffects: string;
+  readonly subtitleEnable: boolean;
+  readonly subtitleType: 'sentence' | 'word';
+  readonly extraRequestJson: Readonly<Record<string, unknown>>;
+  readonly requestTimeoutMs: number;
 }
 
 export const DEFAULT_MINI_MAX_ROLE_VOICES: Readonly<Record<RoleVoiceType, string>> = {

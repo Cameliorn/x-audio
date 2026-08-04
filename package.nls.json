@@ -44,7 +44,7 @@
     "audioplugin.configuration.properties.roleAnalysisCopilotModelId.description": "[Multi-role] Copilot model ID used for role analysis.",
     "audioplugin.configuration.properties.roleAnalysisOpenaiEndpoint.description": "[Multi-role] OpenAI-compatible API endpoint for role analysis.",
     "audioplugin.configuration.properties.roleAnalysisOpenaiModel.description": "[Multi-role] Role analysis model name.",
-    "audioplugin.configuration.properties.roleAnalysisCustomPrompt.description": "[Multi-role] Custom role analysis prompt (supports {{text}} etc.).",
+    "audioplugin.configuration.properties.roleAnalysisCustomPrompt.description": "[Multi-role] Custom role analysis prompt; leave empty to use the built-in prompt. Supports placeholders: {{text}}, {{knownCharacters}}, {{emotions}}, {{toneTags}}, {{voiceTypes}}, {{unknownSpeaker}}, {{strictReminder}}.",
     "audioplugin.configuration.properties.soundEffectsDir.description": "[Multi-role] Background sound effects library; subdirectories are scene categories.",
     "audioplugin.languageModelTools.speakText.displayName": "Read Text",
     "audioplugin.languageModelTools.speakText.modelDescription": "Use the configured TTS provider to convert text to speech and play it. Only use when the user explicitly requests speaking, reading aloud, playing, narrating, or text-to-speech. Consumes TTS quota and plays audio; do not use for general explanations or summaries.",

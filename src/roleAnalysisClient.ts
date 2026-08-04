@@ -4,8 +4,13 @@ import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { createAbortController } from './utils';
 
+export interface ChatMessage {
+  readonly role: 'system' | 'user';
+  readonly content: string;
+}
+
 export interface RoleAnalysisClient {
-    sendRequest(prompt: string, token: vscode.CancellationToken): Promise<string>;
+  sendRequest(messages: readonly ChatMessage[], token: vscode.CancellationToken): Promise<string>;
 }
 
 export function createRoleAnalysisClient(
@@ -22,11 +27,11 @@ export function createRoleAnalysisClient(
 
 class CopilotRoleAnalysisClient implements RoleAnalysisClient {
   public constructor(
-        private readonly config: RoleAnalysisConfig
+    private readonly config: RoleAnalysisConfig
   ) { }
 
   public async sendRequest(
-    prompt: string,
+    chatMessages: readonly ChatMessage[],
     token: vscode.CancellationToken
   ): Promise<string> {
     if (!this.config.copilotModelId) {
@@ -54,9 +59,10 @@ class CopilotRoleAnalysisClient implements RoleAnalysisClient {
       }
     }
 
-    const messages = [
-      vscode.LanguageModelChatMessage.User(prompt)
-    ];
+    // Copilot API 不支持 system 角色消息，统一按 user 消息发送
+    const messages = chatMessages.map(m =>
+      vscode.LanguageModelChatMessage.User(m.content)
+    );
 
     let response: vscode.LanguageModelChatResponse;
     try {
@@ -91,12 +97,12 @@ class CopilotRoleAnalysisClient implements RoleAnalysisClient {
 
 class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
   public constructor(
-        private readonly config: RoleAnalysisConfig,
-        private readonly secrets: vscode.SecretStorage
+    private readonly config: RoleAnalysisConfig,
+    private readonly secrets: vscode.SecretStorage
   ) { }
 
   public async sendRequest(
-    prompt: string,
+    chatMessages: readonly ChatMessage[],
     token: vscode.CancellationToken
   ): Promise<string> {
     const apiKey = await this.resolveApiKey();
@@ -122,9 +128,7 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
         },
         body: JSON.stringify({
           model,
-          messages: [
-            { role: 'user', content: prompt }
-          ],
+          messages: chatMessages.map(m => ({ role: m.role, content: m.content })),
           temperature: 0.3,
           stream: false
         }),

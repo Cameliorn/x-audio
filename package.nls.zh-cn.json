@@ -44,7 +44,7 @@
     "audioplugin.configuration.properties.roleAnalysisCopilotModelId.description": "[分角色] 角色分析所用 Copilot 模型 ID。",
     "audioplugin.configuration.properties.roleAnalysisOpenaiEndpoint.description": "[分角色] 角色分析 OpenAI 兼容 API 地址。",
     "audioplugin.configuration.properties.roleAnalysisOpenaiModel.description": "[分角色] 角色分析模型名。",
-    "audioplugin.configuration.properties.roleAnalysisCustomPrompt.description": "[分角色] 自定义角色分析提示词（含 {{text}} 等占位符）。",
+    "audioplugin.configuration.properties.roleAnalysisCustomPrompt.description": "[分角色] 自定义角色分析提示词，留空使用内置提示词。支持占位符：{{text}}、{{knownCharacters}}、{{emotions}}、{{toneTags}}、{{voiceTypes}}、{{unknownSpeaker}}、{{strictReminder}}。",
     "audioplugin.configuration.properties.soundEffectsDir.description": "[分角色] 背景音效素材库目录，子目录为场景分类。",
     "audioplugin.languageModelTools.speakText.displayName": "朗读文本",
     "audioplugin.languageModelTools.speakText.modelDescription": "使用配置的语音合成渠道将文本转换为语音并播放。仅当用户明确要求朗读、播放、旁白或文字转语音时使用。会消耗额度并在编辑器中播放声音；不要用于普通解释或摘要。",

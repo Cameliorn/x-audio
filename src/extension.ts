@@ -191,9 +191,13 @@ async function speakDocumentWithRoles(
       location: vscode.ProgressLocation.Notification,
       title: t('extension.synthesizeProgress'),
       cancellable: true
-    }, async (progress, token) => multiRoleTtsService.synthesizeSegments(speechSegments, token, (completed, total, segment) =>
-      progress.report({ message: `${completed}/${total} ${segment.speaker}` })
-      , dirConfig?.voiceParams));
+    }, async (progress, token) => multiRoleTtsService.synthesizeSegments(
+      speechSegments,
+      token,
+      (completed, total, segment) => {
+        progress.report({ message: `${completed}/${total} ${segment.speaker}` });
+      },
+      dirConfig?.voiceParams));
 
     await audioPlayer?.playQueue(files, sceneSfxFile);
     vscode.window.setStatusBarMessage(t('extension.synthesizeComplete', files.length, totalCharacters), 5000);

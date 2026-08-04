@@ -24,7 +24,7 @@ suite('RoleAnalysisClient', () => {
       const tokenSource = new vscode.CancellationTokenSource();
 
       await assert.rejects(
-        client.sendRequest('分析这段文本', tokenSource.token),
+        client.sendRequest([{ role: 'user', content: '分析这段文本' }], tokenSource.token),
         (error: unknown) => error instanceof UserVisibleError && error.message.includes('0.1')
       );
 
@@ -48,7 +48,7 @@ suite('RoleAnalysisClient', () => {
     try {
       const client = createRoleAnalysisClient(DEFAULT_CONFIG.roleAnalysis, fakeSecrets());
       const tokenSource = new vscode.CancellationTokenSource();
-      const request = client.sendRequest('分析这段文本', tokenSource.token);
+      const request = client.sendRequest([{ role: 'user', content: '分析这段文本' }], tokenSource.token);
       const rejection = assert.rejects(
         request,
         (error: unknown) => error instanceof vscode.CancellationError
@@ -81,7 +81,7 @@ suite('RoleAnalysisClient', () => {
       tokenSource.cancel();
 
       await assert.rejects(
-        client.sendRequest('分析这段文本', tokenSource.token),
+        client.sendRequest([{ role: 'user', content: '分析这段文本' }], tokenSource.token),
         (error: unknown) => error instanceof vscode.CancellationError
       );
 
