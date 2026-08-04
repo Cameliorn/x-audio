@@ -102,8 +102,16 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
     const apiKey = await this.resolveApiKey();
     const endpoint = ensureChatCompletionsUrl(this.config.openaiEndpoint);
     const model = this.config.openaiModel;
+    if (token.isCancellationRequested) {
+      throw new vscode.CancellationError();
+    }
 
-    const { controller, clear } = createAbortController(token);
+    let timedOut = false;
+    const { controller, clear } = createAbortController(
+      token,
+      this.config.requestTimeoutMs,
+      () => { timedOut = true; }
+    );
 
     try {
       const response = await fetch(endpoint, {
@@ -140,6 +148,14 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
 
       return content;
     } catch (error) {
+      if (timedOut) {
+        throw new UserVisibleError(t('roleAnalysis.timeout', this.config.requestTimeoutMs / 1000));
+      }
+
+      if (token.isCancellationRequested) {
+        throw new vscode.CancellationError();
+      }
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new vscode.CancellationError();
       }

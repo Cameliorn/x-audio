@@ -14,6 +14,8 @@ import { TtsAudioFile } from './ttsService';
 
 const execFileAsync = promisify(execFile);
 
+const BROWSER_REUSE_WINDOW_MS = 15000;
+
 function forceKillProcess(child: ChildProcess): void {
   if (child.pid && child.exitCode === null) {
     try {
@@ -145,6 +147,8 @@ export class AudioPlayerPanel {
   private isPaused = false;
   private browserActive = false;
   private browserProfilePath = '';
+  private profileCleanupStarted = false;
+  private lastBrowserHeartbeat = 0;
 
   public constructor(
     context: vscode.ExtensionContext
@@ -171,18 +175,24 @@ export class AudioPlayerPanel {
     this.isPaused = false;
     this.pendingCommand = undefined;
     this.browserActive = true;
-    if (soundEffectFile !== undefined) {
-      this.currentSfxPath = soundEffectFile && soundEffectFile.trim().length > 0 ? soundEffectFile : undefined;
-    }
+    this.currentSfxPath = soundEffectFile && soundEffectFile.trim().length > 0 ? soundEffectFile : undefined;
     await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
     const url = await this.ensureServerUrl();
 
-    // 先杀掉上一次的浏览器进程，确保每次都是全新窗口
+    // 浏览器窗口仍在线时直接复用，页面轮询 version 端点会自动加载新队列
+    if (this.canReuseBrowser()) {
+      return;
+    }
+
     if (this.browserChild && this.browserChild.exitCode === null) {
       forceKillProcess(this.browserChild);
     }
     this.browserChild = undefined;
 
+    if (!this.profileCleanupStarted) {
+      this.profileCleanupStarted = true;
+      await cleanupBrowserProfileDirs(this.browserProfileRoot, this.browserProfilePath);
+    }
     await launchBrowserWindow(url, this.browserProfileRoot.fsPath, this.browserProfilePath,
       (child, profilePath) => {
         this.browserChild = child;
@@ -228,6 +238,16 @@ export class AudioPlayerPanel {
       this.browserChild.kill();
     }
     this.browserChild = undefined;
+    void deleteBrowserProfile(this.browserProfilePath);
+  }
+
+  private canReuseBrowser(): boolean {
+    return Boolean(
+      this.browserChild &&
+      this.browserChild.exitCode === null &&
+      this.lastBrowserHeartbeat > 0 &&
+      Date.now() - this.lastBrowserHeartbeat < BROWSER_REUSE_WINDOW_MS
+    );
   }
 
   private async ensureServerUrl(): Promise<string> {
@@ -276,6 +296,7 @@ export class AudioPlayerPanel {
 
     // 版本号端点，供页面轮询检测更新
     if (requestUrl.pathname === `/${this.routeToken}/version`) {
+      this.lastBrowserHeartbeat = Date.now();
       const command = this.pendingCommand;
       this.pendingCommand = undefined;
       response.writeHead(200, {
@@ -393,6 +414,53 @@ export class AudioPlayerPanel {
       response.writeHead(404);
       response.end();
     }
+  }
+}
+
+export async function cleanupBrowserProfileDirs(profileRoot: vscode.Uri, keepPath: string): Promise<void> {
+  if (!keepPath) {
+    return;
+  }
+
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(profileRoot);
+    const keepUri = vscode.Uri.file(keepPath).toString();
+    for (const [name, type] of entries) {
+      if (type !== vscode.FileType.Directory) {
+        continue;
+      }
+
+      const dir = vscode.Uri.joinPath(profileRoot, name);
+      if (dir.toString() === keepUri) {
+        continue;
+      }
+
+      try {
+        await vscode.workspace.fs.delete(dir, {
+          recursive: true,
+          useTrash: false
+        });
+      } catch {
+        // 单个旧 profile 清理失败不阻塞
+      }
+    }
+  } catch {
+    // profile 根目录可能不存在
+  }
+}
+
+async function deleteBrowserProfile(profilePath: string): Promise<void> {
+  if (!profilePath) {
+    return;
+  }
+
+  try {
+    await vscode.workspace.fs.delete(vscode.Uri.file(profilePath), {
+      recursive: true,
+      useTrash: false
+    });
+  } catch {
+    // profile 可能不存在
   }
 }
 

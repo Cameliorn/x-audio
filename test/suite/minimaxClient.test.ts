@@ -100,6 +100,31 @@ suite('MiniMaxClient', () => {
     assert.equal(normalizeApiHost('http://127.0.0.1:3000/'), 'http://127.0.0.1:3000');
   });
 
+  test('keeps cache fingerprint stable when nested object key order changes', () => {
+    const first = new MiniMaxClient(() => ({
+      ...DEFAULT_MINI_MAX_CONFIG,
+      extraRequestJson: {
+        a: 1,
+        b: {
+          y: 2,
+          x: 1
+        }
+      }
+    }));
+    const second = new MiniMaxClient(() => ({
+      ...DEFAULT_MINI_MAX_CONFIG,
+      extraRequestJson: {
+        b: {
+          x: 1,
+          y: 2
+        },
+        a: 1
+      }
+    }));
+
+    assert.equal(first.configFingerprint(), second.configFingerprint());
+  });
+
   test('rejects non-HTTPS remote API host URLs', () => {
     assert.throws(() => normalizeApiHost('http://example.com'), UserVisibleError);
   });
@@ -133,6 +158,32 @@ suite('MiniMaxClient', () => {
         error.message.includes('invalid api key') &&
         error.message.includes('trace-123')
     );
+    tokenSource.dispose();
+  });
+
+  test('rejects with CancellationError when the token is cancelled', async () => {
+    const client = new MiniMaxClient(
+      () => DEFAULT_MINI_MAX_CONFIG,
+      async (_input, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      })
+    );
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const request = client.synthesizeSpeech(
+      'hello',
+      DEFAULT_MINI_MAX_CONFIG.voiceId,
+      undefined, undefined, undefined, undefined,
+      undefined,
+      'key',
+      tokenSource.token
+    );
+    const rejection = assert.rejects(
+      request,
+      (error: unknown) => error instanceof vscode.CancellationError
+    );
+    tokenSource.cancel();
+    await rejection;
     tokenSource.dispose();
   });
 

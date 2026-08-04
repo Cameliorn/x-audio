@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { MiniMaxApiError, UserVisibleError } from '../../errors';
 import { t } from '../../i18n';
 import { TtsSynthesisResult, TtsSynthesizer } from '../../types';
-import { createAbortController } from '../../utils';
+import { createAbortController, sortedStringify } from '../../utils';
 import { MiniMaxTtsConfig, normalizeApiHost } from './config';
 
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
@@ -34,7 +34,7 @@ export class MiniMaxClient implements TtsSynthesizer {
     token: vscode.CancellationToken
   ): Promise<TtsSynthesisResult> {
     if (token.isCancellationRequested) {
-      throw new UserVisibleError(t('minimax.requestCancelled'));
+      throw new vscode.CancellationError();
     }
 
     const config = this.configProvider();
@@ -82,7 +82,7 @@ export class MiniMaxClient implements TtsSynthesizer {
       }
 
       if (token.isCancellationRequested) {
-        throw new UserVisibleError(t('minimax.requestCancelled'));
+        throw new vscode.CancellationError();
       }
 
       throw error;
@@ -219,7 +219,7 @@ function createMiniMaxFingerprint(config: MiniMaxTtsConfig): string {
 
   return crypto
     .createHash('sha256')
-    .update(JSON.stringify(identity, Object.keys(identity).sort()))
+    .update(sortedStringify(identity))
     .digest('hex');
 }
 

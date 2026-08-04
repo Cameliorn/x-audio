@@ -63,6 +63,50 @@ suite('TtsService', () => {
     assert.equal(calls, 2);
   });
 
+  test('cleans up temporary audio and stale sessions when caching is disabled', async () => {
+    const root = vscode.Uri.file(path.join(os.tmpdir(), `audioplugin-temp-test-${Date.now()}-${Math.random()}`));
+    const tempRoot = vscode.Uri.joinPath(root, 'audio-tmp');
+    const staleDir = vscode.Uri.joinPath(tempRoot, 'session-stale');
+    await vscode.workspace.fs.createDirectory(staleDir);
+    await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(staleDir, 'stale.mp3'), Buffer.from('stale'));
+
+    const service = new TtsService(
+      root,
+      new StaticApiKeyProvider(),
+      {
+        outputFormat: 'mp3',
+        configFingerprint: () => 'test-fingerprint',
+        async synthesizeSpeech() {
+          return {
+            audio: Buffer.from('audio')
+          };
+        }
+      },
+      () => ({ ...DEFAULT_CONFIG, cacheEnabled: false })
+    );
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const file = await service.synthesizeToFile({ text: 'hello' }, tokenSource.token);
+
+    assert.equal(await fileExists(file.uri), true);
+    assert.equal(await fileExists(vscode.Uri.joinPath(staleDir, 'stale.mp3')), false);
+    assert.equal((await vscode.workspace.fs.readDirectory(tempRoot)).length, 1);
+
+    await service.dispose();
+    tokenSource.dispose();
+
+    assert.equal(await fileExists(file.uri), false);
+    assert.equal((await vscode.workspace.fs.readDirectory(tempRoot)).length, 0);
+    try {
+      await vscode.workspace.fs.delete(root, {
+        recursive: true,
+        useTrash: false
+      });
+    } catch {
+      // 清理测试根目录失败不影响断言
+    }
+  });
+
   test('shares concurrent synthesis for identical text and settings', async () => {
     let calls = 0;
     let releaseSynthesis!: () => void;
@@ -99,6 +143,58 @@ suite('TtsService', () => {
 
     assert.equal(calls, 1);
     assert.equal(firstResult.uri.toString(), secondResult.uri.toString());
+  });
+
+  test('limits concurrent synthesis across direct callers', async () => {
+    let active = 0;
+    let maxActive = 0;
+    let releaseAll!: () => void;
+    let notifySecond!: () => void;
+    const secondStarted = new Promise<void>(resolve => {
+      notifySecond = resolve;
+    });
+    const gate = new Promise<void>(resolve => {
+      releaseAll = resolve;
+    });
+
+    const service = createService({
+      config: {
+        ...DEFAULT_CONFIG,
+        cacheEnabled: false,
+        maxConcurrentRequests: 2
+      },
+      client: {
+        outputFormat: 'mp3',
+        configFingerprint: () => 'test-fingerprint',
+        async synthesizeSpeech() {
+          active++;
+          maxActive = Math.max(maxActive, active);
+          if (active === 2) {
+            notifySecond();
+          }
+          await gate;
+          active--;
+          return {
+            audio: Buffer.from('audio')
+          };
+        }
+      }
+    });
+
+    const tokenSource = new vscode.CancellationTokenSource();
+    const requests = Array.from({ length: 4 }, (_unused, index) =>
+      service.synthesizeToFile({ text: `text-${index}` }, tokenSource.token)
+    );
+
+    await secondStarted;
+    assert.equal(active, 2);
+
+    releaseAll();
+    await Promise.all(requests);
+    assert.equal(maxActive, 2);
+
+    tokenSource.dispose();
+    await service.dispose();
   });
 
   test('removes older cached audio when the cache size limit is exceeded', async () => {

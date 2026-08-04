@@ -8,6 +8,7 @@ export interface RoleAnalysisConfig {
   readonly openaiEndpoint: string;
   readonly openaiModel: string;
   readonly customPrompt: string;
+  readonly requestTimeoutMs: number;
 }
 
 /** 通用配置（audioplugin.*），与具体 TTS 渠道无关 */
@@ -35,6 +36,7 @@ export const DEFAULT_CONFIG: TtsConfig = {
     copilotModelId: '',
     openaiEndpoint: 'https://api.deepseek.com',
     openaiModel: 'deepseek-chat',
+    requestTimeoutMs: 60000,
     customPrompt: `你是一名资深有声书导演，兼具作家的文学鉴赏力和导演的表演指导能力。请通读下面的小说文本，从整体上把握叙事节奏、场景氛围和人物性格后，将其拆分为连续的朗读片段。
 
 作为导演，你需要理解：
@@ -99,6 +101,11 @@ export function getRoleAnalysisConfig(settings: vscode.WorkspaceConfiguration): 
     openaiModel: readNonEmptyString(
       settings.get<string>('roleAnalysis.openaiModel'),
       DEFAULT_CONFIG.roleAnalysis.openaiModel
+    ),
+    requestTimeoutMs: readPositiveInt(
+      settings,
+      'requestTimeoutMs',
+      DEFAULT_CONFIG.requestTimeoutMs
     ),
     customPrompt: readNonEmptyString(
       settings.get<string>('roleAnalysis.customPrompt'),

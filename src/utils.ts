@@ -18,6 +18,22 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * JSON.stringify 但保证 key 按字母序排列，包括嵌套对象。
+ * 确保相同语义的对象始终产生相同的字符串。
+ */
+export function sortedStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(sortedStringify).join(',')}]`;
+  }
+  const keys = Object.keys(value as Record<string, unknown>).sort();
+  const pairs = keys.map(k => `${JSON.stringify(k)}:${sortedStringify((value as Record<string, unknown>)[k])}`);
+  return `{${pairs.join(',')}}`;
+}
+
+/**
  * 创建 AbortController 并绑定取消令牌和可选超时。
  * 返回 controller 和清理函数。onTimeout 在超时触发 abort 前调用。
  */
@@ -28,6 +44,9 @@ export function createAbortController(
 ): { controller: AbortController; clear: () => void } {
   const controller = new AbortController();
   const disposable = token.onCancellationRequested(() => controller.abort());
+  if (token.isCancellationRequested) {
+    controller.abort();
+  }
 
   let timeout: ReturnType<typeof setTimeout> | undefined;
   if (timeoutMs !== undefined && timeoutMs > 0) {
