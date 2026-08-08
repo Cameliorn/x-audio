@@ -1,14 +1,13 @@
 # AudioPlugin 朗读助手
 
-在 VS Code 中将文本合成为语音并朗读。支持普通朗读、分角色朗读、背景音效，并可作为 Copilot Agent 工具使用。
+在 VS Code 中将文本合成为语音并朗读。支持普通朗读、分角色朗读，并可作为 Copilot Agent 工具使用。
 
-语音合成采用**渠道（Provider）**架构：默认使用 MiniMax 渠道，未来可扩展更多 TTS 渠道。
+语音合成采用**渠道（Provider）**架构：普通朗读默认使用 MiniMax 渠道；豆包音频生成（Seed-Audio 1.0）通过独立的场景命令与智能体工具使用，与普通朗读完全隔离。
 
 ## 功能
 
 - **朗读选中文本** — 选中编辑器内容，一键合成语音
 - **分角色朗读** — 自动分析小说角色与对白，为每个角色分配不同音色
-- **背景音效** — 自动分析文本场景氛围，匹配对应音效素材
 - **播放控制** — 支持暂停/恢复、停止播放
 - **Copilot 集成** — 作为 Language Model Tool（`audioplugin_speak`）供 Copilot Agent 调用
 - **音频缓存** — 相同文本自动复用已合成的音频
@@ -26,18 +25,30 @@
 2. 打开小说文本，运行 **分角色朗读文档**
 3. 确认角色与音色分配后开始合成
 
-### 背景音效
-
-1. 运行 **选择音效素材库文件夹**，选择一个按场景分类的音频目录
-2. 分角色朗读时，DeepSeek 自动分析场景并匹配音效
-
-> 音效素材库结构示例：`sfx/forest/`, `sfx/rain/`, `sfx/battle/` 等，子目录名即为场景分类。
-
 ## TTS 渠道（Provider）
 
 通过设置 `audioplugin.provider` 选择语音合成渠道（默认 `minimax`）。每个渠道的专属设置在 `audioplugin.<渠道>.*` 下：
 
 - **`minimax`（默认）** — MiniMax 语音合成，设置项见下表（`audioplugin.minimax.*`）
+
+普通朗读（`audioplugin.speakSelection`）、分角色朗读与 `audioplugin_speak` 智能体工具仅使用当前渠道（MiniMax）。豆包不参与这些流程。
+
+## 豆包音频场景（与普通朗读完全隔离）
+
+豆包音频生成模型（Seed-Audio 1.0）通过**独立的命令与智能体工具**使用：选中文本被视为**一条完整 Prompt**，单次请求端到端生成综合语音场景（多角色对白、语气情绪、音效、背景音乐），不经过普通朗读的分句/缓存流程。
+
+- **右键命令** `audioplugin.speakScenePrompt`（用豆包生成音频场景）— 选中文本作为 Prompt，生成并播放
+- **智能体工具** `audioplugin_scene` — Copilot 智能体可调用，输入 `prompt` 字段生成并播放音频场景
+- 密钥：运行 **「AudioPlugin 朗读助手：设置密钥」** 粘贴[火山引擎语音 API Key](https://console.volcengine.com/speech/new/setting/apikeys)（与普通朗读的 MiniMax 密钥相互独立存储）
+- Prompt 上限 3000 字符，单次输出最长 120 秒
+
+示例 Prompt：
+
+```
+深夜的废弃工厂，雨滴打在铁皮屋顶。男主（低沉警惕）："你听到什么声音了吗？"
+女主（压低声音）："好像……有人在跟踪我们。"背景音乐悬疑紧张，弦乐渐强，
+远处偶尔传来雷声。
+```
 
 ## 配置文件 `.ttsvoices.json`
 
@@ -67,9 +78,9 @@
 |---|---|
 | `audioplugin.speakSelection` | 朗读选中文本 |
 | `audioplugin.speakDocumentWithRoles` | 分角色朗读文档 |
+| `audioplugin.speakScenePrompt` | 用豆包生成音频场景（选中文本为完整 Prompt） |
 | `audioplugin.setApiKey` | 设置当前渠道 API 密钥 |
 | `audioplugin.configureRoleAnalysis` | 配置角色分析（DeepSeek） |
-| `audioplugin.setSoundEffectsDir` | 选择音效素材库 |
 | `audioplugin.pause` | 暂停/恢复播放 |
 | `audioplugin.stop` | 停止播放 |
 
@@ -79,6 +90,7 @@
 
 - **[通用]** — 所有渠道、所有朗读模式
 - **[MiniMax]** — 仅 MiniMax 渠道
+- **[豆包][音频场景]** — 仅豆包音频场景命令/工具
 - **[分角色]** — 仅分角色朗读
 - **[普通朗读]** — 仅普通朗读（朗读选中文本）
 
@@ -92,7 +104,6 @@
 | `requestTimeoutMs` | [通用] 请求超时（毫秒） | `60000` |
 | `maxConcurrentRequests` | [分角色] 多角色合成最大并发请求数（1~8） | `3` |
 | `browserPath` | [通用] 外部播放器浏览器路径 | — |
-| `soundEffectsDir` | [分角色] 音效素材库目录 | — |
 | `roleAnalysis.*` | [分角色] 角色分析配置（DeepSeek/Copilot） | — |
 
 ### MiniMax 渠道设置（`audioplugin.minimax.*`）
@@ -108,8 +119,22 @@
 | `roleVoices` | [MiniMax][分角色] 角色类型默认音色 | — |
 | `format` | [MiniMax] 输出音频格式 | `mp3` |
 
+### 豆包音频场景设置（`audioplugin.doubao.*`）
+
+| 设置 | 说明 | 默认值 |
+|---|---|---|
+| `apiHost` | [豆包][音频场景] API 地址 | `https://openspeech.bytedance.com` |
+| `model` | [豆包][音频场景] 音频生成模型 | `seed-audio-1.0` |
+| `speechRate` | [豆包][音频场景] 语速偏移（-50~100，100 为 2.0 倍速） | `0` |
+| `loudnessRate` | [豆包][音频场景] 音量偏移（格式同 speechRate） | `0` |
+| `pitchRate` | [豆包][音频场景] 音调偏移（-12~12） | `0` |
+| `format` | [豆包][音频场景] 输出音频格式 | `mp3` |
+
+> 注意：音频场景为纯 Prompt 生成模式（不指定音色），Prompt 上限 3000 字符、单次输出最长 120 秒。
+
 ## 要求
 
 - VS Code `^1.100.0`
-- 当前渠道的 API 密钥（MiniMax 语音订阅或 Token Plan）
+- 普通朗读需 MiniMax 语音订阅或 Token Plan 密钥
+- 豆包音频场景需[火山引擎语音 API Key](https://console.volcengine.com/speech/new/setting/apikeys)（独立存储）
 - 分角色朗读需 DeepSeek API 密钥

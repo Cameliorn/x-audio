@@ -1,5 +1,42 @@
 import * as vscode from 'vscode';
 
+/** 合并所有非空选区的文本 */
+export function getSelectedText(editor: vscode.TextEditor): string {
+  return editor.selections
+    .filter(selection => !selection.isEmpty)
+    .map(selection => editor.document.getText(selection))
+    .join('\n')
+    .trim();
+}
+
+/** 清理 tempRoot 下除 keepDir 外的旧子目录 */
+export async function cleanupStaleTempDirs(tempRoot: vscode.Uri, keepDir: vscode.Uri): Promise<void> {
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(tempRoot);
+    for (const [name, type] of entries) {
+      if (type !== vscode.FileType.Directory) {
+        continue;
+      }
+
+      const dir = vscode.Uri.joinPath(tempRoot, name);
+      if (dir.toString() === keepDir.toString()) {
+        continue;
+      }
+
+      try {
+        await vscode.workspace.fs.delete(dir, {
+          recursive: true,
+          useTrash: false
+        });
+      } catch {
+        // 单个旧目录清理失败不阻塞
+      }
+    }
+  } catch {
+    // temp root 可能不存在
+  }
+}
+
 /**
  * 将数值限制在 [min, max] 区间内，若非有限数值则返回 undefined。
  */
@@ -8,6 +45,14 @@ export function clampNumber(value: unknown, min: number, max: number): number | 
     return Math.max(min, Math.min(max, value));
   }
   return undefined;
+}
+
+/** 并发请求数上限，防止用户把配置调得过高后压垮 TTS 服务 */
+export const MAX_CONCURRENT_REQUESTS = 8;
+
+/** 将并发数限制在 [1, max] 的整数 */
+export function clampConcurrency(value: number, max: number = MAX_CONCURRENT_REQUESTS): number {
+  return Math.min(max, Math.max(1, Math.floor(value)));
 }
 
 /**

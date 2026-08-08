@@ -1,5 +1,4 @@
 import * as crypto from 'crypto';
-import * as path from 'path';
 import type { TtsAudioFile } from './ttsService';
 
 export interface PlayerPage {
@@ -53,7 +52,6 @@ export function getPlayerPage(pageGen: number): PlayerPage {
 <body>
   <main>
     <audio id="audio" controls autoplay></audio>
-    <audio id="sfx" loop style="display:none"></audio>
   </main>
   <script nonce="${nonce}">
     (function () {
@@ -79,24 +77,18 @@ export function getPlayerPage(pageGen: number): PlayerPage {
         startPlayback();
       }
 
-      var sfxAudio = document.getElementById('sfx');
-      var sfxWasPlaying = false;
-
-      function playVersion(version, count, sfx, command) {
+      function playVersion(version, count, command) {
         if (command === 'pause') {
           audio.pause();
-          if (sfxAudio) { sfxWasPlaying = !sfxAudio.paused; sfxAudio.pause(); }
           return;
         }
         if (command === 'resume') {
           audio.play().catch(function () {});
-          if (sfxAudio && sfxWasPlaying) { sfxAudio.play().catch(function () {}); sfxWasPlaying = false; }
           return;
         }
         if (command === 'stop') {
           audio.pause();
           audio.src = '';
-          if (sfxAudio) { sfxAudio.pause(); sfxAudio.src = ''; }
           try { window.close(); } catch (_) {}
           return;
         }
@@ -112,23 +104,12 @@ export function getPlayerPage(pageGen: number): PlayerPage {
         currentVersion = version;
         currentIndex = 0;
         loadCurrent();
-
-        if (sfx) {
-          sfxAudio.src = window.location.pathname + '/sfx?version=' + encodeURIComponent(String(version));
-          sfxAudio.volume = 0.4;
-          sfxAudio.play().catch(function () {});
-        } else {
-          sfxAudio.pause();
-          sfxAudio.src = '';
-        }
       }
 
       audio.addEventListener('ended', function () {
         if (currentIndex + 1 < currentCount) {
           currentIndex++;
           loadCurrent();
-        } else {
-          if (sfxAudio) { sfxAudio.pause(); }
         }
       });
 
@@ -145,7 +126,7 @@ export function getPlayerPage(pageGen: number): PlayerPage {
               return;
             }
             if (typeof data.version === 'number') {
-              playVersion(data.version, data.count, data.sfx, data.command);
+              playVersion(data.version, data.count, data.command);
             }
           })
           .catch(function () {})
@@ -167,23 +148,6 @@ export function getAudioMime(format: TtsAudioFile['format']): string {
     case 'flac':
       return 'audio/flac';
     case 'mp3':
-    default:
-      return 'audio/mpeg';
-  }
-}
-
-export function getAudioMimeFromPath(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  switch (ext) {
-    case '.wav':
-      return 'audio/wav';
-    case '.flac':
-      return 'audio/flac';
-    case '.ogg':
-      return 'audio/ogg';
-    case '.m4a':
-      return 'audio/mp4';
-    case '.mp3':
     default:
       return 'audio/mpeg';
   }

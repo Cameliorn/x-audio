@@ -16,7 +16,7 @@ suite('Extension', () => {
     assert.ok(!commands.includes('audioplugin.testConnection'));
   });
 
-  test('hides non-setup commands from the command palette', async () => {
+  test('hides non-setup commands from the command palette until playback starts', async () => {
     const extension = findAudioPluginExtension();
     await extension.activate();
 
@@ -32,18 +32,18 @@ suite('Extension', () => {
       },
       {
         command: 'audioplugin.pause',
-        when: 'false'
+        when: 'audioplugin.playing'
       },
       {
         command: 'audioplugin.stop',
-        when: 'false'
+        when: 'audioplugin.playing'
       }
     ]);
   });
 });
 
 function findAudioPluginExtension(): vscode.Extension<unknown> {
-  const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'audioplugin');
+  const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'audioplugin-tts');
   assert.ok(extension, 'AudioPlugin extension should be available in extension tests.');
   return extension;
 }

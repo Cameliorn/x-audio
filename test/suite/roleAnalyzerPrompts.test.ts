@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildRoleAnalysisMessages, buildSceneTypePrompt } from '../../src/roleAnalyzerPrompts';
+import { buildRoleAnalysisMessages } from '../../src/roleAnalyzerPrompts';
 
 suite('roleAnalyzerPrompts.buildRoleAnalysisMessages', () => {
   test('uses built-in system + user messages when no custom prompt', () => {
@@ -95,21 +95,5 @@ suite('roleAnalyzerPrompts.buildRoleAnalysisMessages', () => {
 
     assert.equal(messages.length, 3);
     assert.ok(messages[2].content.includes('上次解析失败'));
-  });
-});
-
-suite('roleAnalyzerPrompts.buildSceneTypePrompt', () => {
-  test('injects scene type enumerations', () => {
-    const prompt = buildSceneTypePrompt('文本');
-
-    assert.ok(prompt.includes('- intimate（亲密'));
-    assert.ok(prompt.includes('- none（以上均不匹配'));
-    assert.ok(prompt.includes('待分析文本'));
-  });
-
-  test('does not corrupt text containing {text}', () => {
-    const prompt = buildSceneTypePrompt('包含 {text} 字样');
-
-    assert.ok(prompt.includes('包含 {text} 字样'));
   });
 });

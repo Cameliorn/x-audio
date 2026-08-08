@@ -1,23 +1,26 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { RoleAnalysisProvider, getRoleAnalysisConfig } from './config';
-import { MissingApiKeyError, UserVisibleError, getErrorMessage } from './errors';
+import { DoubaoSceneService, speakScenePromptFromEditor } from './doubaoScene';
+import { handleUserFacingError } from './errors';
 import { AudioPlayerPanel } from './externalAudioPlayer';
 import { t } from './i18n';
 import { MultiRoleTtsService, RoleSpeechSegment } from './multiRoleTtsService';
+import { doubaoProvider } from './providers/doubao';
 import { getActiveProvider } from './providers/registry';
 import { createRoleAnalysisClient } from './roleAnalysisClient';
-import { StorySegment, analyzeSceneType, analyzeStoryRoles } from './roleAnalyzer';
+import { StorySegment, analyzeStoryRoles } from './roleAnalyzer';
 import { confirmRoleAssignments } from './roleConfirmation';
 import { CHARACTER_VOICE_STATE_KEY, assignVoices } from './roleVoiceMapper';
-import { pickSoundEffectForScene, setSoundEffectsDir } from './sceneSfx';
+import { ScenePromptTool } from './scenePromptTool';
 import { SecretManager } from './secretManager';
 import { SpeakExecutor, SpeakTextTool } from './speakTextTool';
 import { TtsService } from './ttsService';
+import { getSelectedText } from './utils';
 import { findDirectoryVoiceConfig } from './voiceConfigFile';
 
 let audioPlayer: AudioPlayerPanel | undefined;
 let ttsService: TtsService | undefined;
+let doubaoSceneService: DoubaoSceneService | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const provider = getActiveProvider();
@@ -28,6 +31,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const multiRoleTtsService = new MultiRoleTtsService(service);
 
   audioPlayer = new AudioPlayerPanel(context);
+  // 豆包音频场景：与普通朗读渠道完全隔离，独立服务实例
+  const doubaoScene = new DoubaoSceneService(context);
+  doubaoSceneService = doubaoScene;
 
   const speak: SpeakExecutor = async (request, token) => {
     const audioFile = await service.synthesizeToFile(request, token);
@@ -35,10 +41,31 @@ export function activate(context: vscode.ExtensionContext): void {
     return audioFile;
   };
 
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
+  statusBarItem.command = 'audioplugin.playbackControls';
+  context.subscriptions.push(
+    statusBarItem,
+    audioPlayer.onDidChangePlaybackState(state => {
+      void vscode.commands.executeCommand('setContext', 'audioplugin.playing', state.active);
+      if (state.active) {
+        statusBarItem.text = state.paused ? t('extension.statusPaused') : t('extension.statusPlaying');
+        statusBarItem.tooltip = t('extension.playbackControlsTitle');
+        statusBarItem.show();
+      } else {
+        statusBarItem.hide();
+      }
+    })
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand('audioplugin.speakSelection', () => speakSelection(speak, secretManager)),
     vscode.commands.registerCommand('audioplugin.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, service, multiRoleTtsService)),
-    vscode.commands.registerCommand('audioplugin.setApiKey', () => secretManager.promptAndStoreApiKey()),
+    vscode.commands.registerCommand('audioplugin.speakScenePrompt', () => {
+      if (audioPlayer) {
+        void speakScenePromptFromEditor(doubaoScene, audioPlayer);
+      }
+    }),
+    vscode.commands.registerCommand('audioplugin.setApiKey', () => promptSetApiKey(secretManager, doubaoScene)),
     vscode.commands.registerCommand('audioplugin.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
     vscode.commands.registerCommand('audioplugin.pause', () => {
       audioPlayer?.pause();
@@ -46,9 +73,72 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('audioplugin.stop', () => {
       audioPlayer?.stop();
     }),
-    vscode.commands.registerCommand('audioplugin.setSoundEffectsDir', () => setSoundEffectsDir()),
-    vscode.lm.registerTool('audioplugin_speak', new SpeakTextTool(speak))
+    vscode.commands.registerCommand('audioplugin.playbackControls', () => showPlaybackControls()),
+    vscode.lm.registerTool('audioplugin_speak', new SpeakTextTool(speak)),
+    vscode.lm.registerTool('audioplugin_scene', new ScenePromptTool(doubaoScene, audioPlayer))
   );
+
+  promptApiKeyOnFirstRun(context, secretManager);
+}
+
+const API_KEY_PROMPT_STATE_KEY = 'audioplugin.apiKeyPromptShown';
+
+/** 设置密钥：先选择服务（普通朗读渠道 / 豆包音频场景），再输入对应密钥 */
+async function promptSetApiKey(secretManager: SecretManager, doubaoScene: DoubaoSceneService): Promise<void> {
+  const provider = getActiveProvider();
+  const picked = await vscode.window.showQuickPick(
+    [
+      { label: provider.displayName, description: t('extension.setKeyNormalReading'), target: 'main' as const },
+      { label: doubaoProvider.displayName, description: t('extension.setKeyDoubaoScene'), target: 'doubao' as const }
+    ],
+    { title: t('extension.setKeySelectTitle'), ignoreFocusOut: true }
+  );
+
+  if (picked?.target === 'doubao') {
+    await doubaoScene.promptAndStoreApiKey();
+  } else if (picked?.target === 'main') {
+    await secretManager.promptAndStoreApiKey();
+  }
+}
+
+/** 首次激活且无密钥时一次性引导设置，之后不再打扰 */
+function promptApiKeyOnFirstRun(context: vscode.ExtensionContext, secretManager: SecretManager): void {
+  if (context.globalState.get<boolean>(API_KEY_PROMPT_STATE_KEY)) {
+    return;
+  }
+
+  void (async () => {
+    if (await secretManager.getApiKey()) {
+      return;
+    }
+
+    const action = await vscode.window.showInformationMessage(t('extension.firstRunNoApiKey'), t('extension.setKey'));
+    await context.globalState.update(API_KEY_PROMPT_STATE_KEY, true);
+    if (action === t('extension.setKey')) {
+      await secretManager.promptAndStoreApiKey();
+    }
+  })();
+}
+
+async function showPlaybackControls(): Promise<void> {
+  const player = audioPlayer;
+  if (!player) {
+    return;
+  }
+
+  const picked = await vscode.window.showQuickPick(
+    [
+      { label: t('extension.pauseResumeItem'), action: 'pause' as const },
+      { label: t('extension.stopItem'), action: 'stop' as const }
+    ],
+    { title: t('extension.playbackControlsTitle') }
+  );
+
+  if (picked?.action === 'pause') {
+    player.pause();
+  } else if (picked?.action === 'stop') {
+    player.stop();
+  }
 }
 
 export function deactivate(): void {
@@ -57,6 +147,9 @@ export function deactivate(): void {
   const service = ttsService;
   ttsService = undefined;
   void service?.dispose();
+  const sceneService = doubaoSceneService;
+  doubaoSceneService = undefined;
+  void sceneService?.dispose();
 }
 
 async function speakSelection(speak: SpeakExecutor, secretManager: SecretManager): Promise<void> {
@@ -101,7 +194,6 @@ async function speakDocumentWithRoles(
   }
 
   let segments: StorySegment[];
-  let sceneSfxFile: string | undefined;
   try {
     const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('audioplugin'));
     const roleAnalysisClient = createRoleAnalysisClient(roleAnalysisConfig, context.secrets);
@@ -112,40 +204,15 @@ async function speakDocumentWithRoles(
       location: vscode.ProgressLocation.Notification,
       title: t('extension.roleAnalysisProgress', modelDisplay),
       cancellable: true
-    }, async (progress, token) => {
-      // 场景分析只依赖文本整体氛围，与角色分析并行发起，减少串行等待
-      const sceneAnalysis = analyzeSceneType(text, roleAnalysisClient, token)
-        .then(async (sceneType) => {
-          if (sceneType !== 'none') {
-            const picked = await pickSoundEffectForScene(sceneType);
-            if (picked) {
-              sceneSfxFile = picked;
-            }
-          }
-        })
-        .catch((err: unknown) => {
-          if (err instanceof vscode.CancellationError) {
-            throw err;
-          }
-          // 场景分析失败不影响主流程
-          // eslint-disable-next-line no-console
-          console.warn('[AudioPlugin] 场景分析失败：', err);
-          vscode.window.showInformationMessage(t('extension.sceneAnalysisFailed'));
-        });
-
-      const roleAnalysis = analyzeStoryRoles(
-        text,
-        roleAnalysisClient,
-        token,
-        roleProgress => progress.report({
-          message: t('extension.roleAnalysisChunk', roleProgress.completedChunks, roleProgress.totalChunks)
-        }),
-        roleAnalysisConfig.customPrompt
-      );
-
-      const [analyzed] = await Promise.all([roleAnalysis, sceneAnalysis]);
-      return analyzed;
-    });
+    }, async (progress, token) => analyzeStoryRoles(
+      text,
+      roleAnalysisClient,
+      token,
+      roleProgress => progress.report({
+        message: t('extension.roleAnalysisChunk', roleProgress.completedChunks, roleProgress.totalChunks)
+      }),
+      roleAnalysisConfig.customPrompt
+    ));
   } catch (error) {
     await handleError(error, secretManager);
     return;
@@ -200,10 +267,7 @@ async function speakDocumentWithRoles(
       },
       dirConfig?.voiceParams));
 
-    if (sceneSfxFile) {
-      vscode.window.showInformationMessage(t('extension.sfxPlaying', path.basename(sceneSfxFile)));
-    }
-    await audioPlayer?.playQueue(files, sceneSfxFile);
+    await audioPlayer?.playQueue(files);
     vscode.window.setStatusBarMessage(t('extension.synthesizeComplete', files.length, totalCharacters), 5000);
   } catch (error) {
     if (error instanceof vscode.CancellationError) {
@@ -211,14 +275,6 @@ async function speakDocumentWithRoles(
     }
     await handleError(error, secretManager);
   }
-}
-
-function getSelectedText(editor: vscode.TextEditor): string {
-  return editor.selections
-    .filter(selection => !selection.isEmpty)
-    .map(selection => editor.document.getText(selection))
-    .join('\n')
-    .trim();
 }
 
 interface SpeakWithProgressOptions {
@@ -244,24 +300,7 @@ async function runSpeakWithProgress(options: SpeakWithProgressOptions): Promise<
 }
 
 async function handleError(error: unknown, secretManager: SecretManager): Promise<void> {
-  if (error instanceof vscode.CancellationError) {
-    return;
-  }
-
-  if (error instanceof MissingApiKeyError) {
-    const action = await vscode.window.showErrorMessage(error.message, t('extension.setKey'));
-    if (action === t('extension.setKey')) {
-      await secretManager.promptAndStoreApiKey();
-    }
-    return;
-  }
-
-  if (error instanceof UserVisibleError) {
-    vscode.window.showErrorMessage(error.message);
-    return;
-  }
-
-  vscode.window.showErrorMessage(getErrorMessage(error));
+  await handleUserFacingError(error, async () => { await secretManager.promptAndStoreApiKey(); });
 }
 
 async function configureRoleAnalysis(secrets: vscode.SecretStorage): Promise<void> {

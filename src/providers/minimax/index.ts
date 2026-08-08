@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 import { TtsProvider } from '../types';
 import { inspectMiniMaxApiKey } from './apiKey';
 import { MiniMaxClient } from './client';
@@ -9,5 +10,6 @@ export const minimaxProvider: TtsProvider = {
   apiKeySecret: 'audioplugin.minimax.apiKey',
   readConfig: () => getMiniMaxConfig(),
   createClient: () => new MiniMaxClient(getMiniMaxConfig),
-  inspectApiKey: inspectMiniMaxApiKey
+  inspectApiKey: inspectMiniMaxApiKey,
+  apiKeyHint: () => t('secretManager.setKeyPromptMiniMax')
 };

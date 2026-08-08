@@ -6,7 +6,6 @@ test/**
 scripts/**
 out/test/**
 软件著作权申请资料/**
-sfx-demo/**
 *.py
 .eslintrc.json
 .gitignore

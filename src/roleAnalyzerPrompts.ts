@@ -35,23 +35,9 @@ export const TONE_TAGS = [
 ] as const;
 export type ToneTag = typeof TONE_TAGS[number];
 
-/** 场景分类（用于背景音效选择），枚举与提示词同步注入 */
-export type SceneType = 'intimate' | 'action' | 'ambience' | 'horror' | 'daily' | 'none';
-
-export const SCENE_TYPES: readonly SceneType[] = ['intimate', 'action', 'ambience', 'horror', 'daily', 'none'];
-
-const SCENE_TYPE_LABELS: Readonly<Record<SceneType, string>> = {
-  intimate: '亲密/情欲场景：床戏、暧昧、肢体接触、呻吟等',
-  action: '动作/战斗/冲突/追逐等',
-  ambience: '环境氛围：雨景、夜景、自然描写、旅途等',
-  horror: '恐怖/悬疑/紧张/惊悚场景',
-  daily: '日常对话/生活场景/普通叙事',
-  none: '以上均不匹配，不需要背景音效'
-};
-
 /** 角色分析提示词模块：内置提示词默认拆分为 system（规则）与 user（动态数据）两条消息；
  * 用户设置 audioplugin.roleAnalysis.customPrompt 时整体作为单条 user 消息（保持旧语义）。
- * 领域常量（音色类型、情绪、音效标签、场景分类）与提示词同处，自动注入避免漂移。 */
+ * 领域常量（音色类型、情绪、音效标签）与提示词同处，自动注入避免漂移。 */
 
 const BUILTIN_SYSTEM_PROMPT = `你是一名资深有声书导演，兼具作家的文学鉴赏力和导演的表演指导能力。请通读下面的小说文本，从整体上把握叙事节奏、场景氛围和人物性格后，将其拆分为连续的朗读片段。
 
@@ -190,24 +176,4 @@ function replacePlaceholders(template: string, p: PromptPlaceholders): string {
   result = result.split(STRICT_SENTINEL).join(p.strictReminder);
   result = result.split(KNOWN_SENTINEL).join(p.knownJson);
   return result.split(TEXT_SENTINEL).join(p.chunk);
-}
-
-const SCENE_TYPE_PROMPT = `分析以下文本的整体场景氛围，从以下分类中选择最匹配的一个（只输出分类名，不要其他任何内容）：
-{{sceneTypes}}
-
-待分析文本：
-"""
-{{text}}
-"""`;
-
-/** 截取前 4000 字用于场景分析，足够判断整体氛围 */
-export function buildSceneTypePrompt(text: string): string {
-  const sceneTypes = SCENE_TYPES
-    .map(type => `- ${type}（${SCENE_TYPE_LABELS[type]}）`)
-    .join('\n');
-
-  return SCENE_TYPE_PROMPT
-    .replace('{{sceneTypes}}', sceneTypes)
-    .replace('{{text}}', TEXT_SENTINEL)
-    .split(TEXT_SENTINEL).join(text.slice(0, 4000));
 }

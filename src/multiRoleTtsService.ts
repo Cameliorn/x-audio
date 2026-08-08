@@ -4,6 +4,7 @@ import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { StorySegment, applyTextModifiers, splitTextIntoChunks } from './roleAnalyzer';
 import { ConfigProvider, TtsAudioFile, TtsService } from './ttsService';
+import { clampConcurrency } from './utils';
 import { VoiceParams, applyVoiceConfig } from './voiceConfigFile';
 
 export interface RoleSpeechSegment extends StorySegment {
@@ -11,9 +12,6 @@ export interface RoleSpeechSegment extends StorySegment {
 }
 
 export type SegmentProgressCallback = (completed: number, total: number, segment: RoleSpeechSegment) => void;
-
-/** 并发请求数上限，防止用户把配置调得过高后压垮 TTS 服务 */
-const MAX_CONCURRENT_REQUESTS = 8;
 
 export class MultiRoleTtsService {
   public constructor(
@@ -84,10 +82,6 @@ export class MultiRoleTtsService {
 
     return files;
   }
-}
-
-function clampConcurrency(value: number): number {
-  return Math.min(MAX_CONCURRENT_REQUESTS, Math.max(1, Math.floor(value)));
 }
 
 /**

@@ -6,15 +6,12 @@ import {
   NARRATOR_NAME,
   ROLE_VOICE_TYPES,
   RoleVoiceType,
-  SCENE_TYPES,
   STORY_EMOTIONS,
-  SceneType,
   StoryEmotion,
   TONE_TAGS,
   ToneTag,
   UNKNOWN_SPEAKER_NAME,
-  buildRoleAnalysisMessages,
-  buildSceneTypePrompt
+  buildRoleAnalysisMessages
 } from './roleAnalyzerPrompts';
 import { clampNumber } from './utils';
 
@@ -380,22 +377,4 @@ function findSplitPoint(text: string, maxCharacters: number): number {
   }
 
   return maxCharacters;
-}
-
-export async function analyzeSceneType(
-  text: string,
-  client: RoleAnalysisClient,
-  token: vscode.CancellationToken
-): Promise<SceneType> {
-  const raw = await client.sendRequest(
-    [{ role: 'user', content: buildSceneTypePrompt(text) }],
-    token
-  );
-  const category = raw.trim().toLowerCase();
-
-  if ((SCENE_TYPES as readonly string[]).includes(category)) {
-    return category as SceneType;
-  }
-
-  return 'none';
 }

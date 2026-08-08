@@ -30,7 +30,7 @@ export class SecretManager implements ApiKeyProvider {
   public async promptAndStoreApiKey(): Promise<boolean> {
     const apiKey = await vscode.window.showInputBox({
       title: t('secretManager.setKeyTitle', this.provider.displayName),
-      prompt: t('secretManager.setKeyPrompt', this.provider.displayName),
+      prompt: this.provider.apiKeyHint?.() ?? t('secretManager.setKeyPrompt', this.provider.displayName),
       password: true,
       ignoreFocusOut: true,
       validateInput: value => value.trim().length === 0 ? t('secretManager.keyEmpty') : undefined

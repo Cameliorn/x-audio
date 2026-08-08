@@ -19,7 +19,6 @@ export interface TtsConfig {
   readonly requestTimeoutMs: number;
   readonly maxConcurrentRequests: number;
   readonly browserPath: string;
-  readonly soundEffectsDir: string;
   readonly roleAnalysis: RoleAnalysisConfig;
 }
 
@@ -30,7 +29,6 @@ export const DEFAULT_CONFIG: TtsConfig = {
   requestTimeoutMs: 60000,
   maxConcurrentRequests: 3,
   browserPath: '',
-  soundEffectsDir: '',
   roleAnalysis: {
     provider: 'openai' as RoleAnalysisProvider,
     copilotModelId: '',
@@ -52,7 +50,6 @@ export function getTtsConfig(): TtsConfig {
     requestTimeoutMs: readPositiveInt(settings, 'requestTimeoutMs', DEFAULT_CONFIG.requestTimeoutMs),
     maxConcurrentRequests: readPositiveInt(settings, 'maxConcurrentRequests', DEFAULT_CONFIG.maxConcurrentRequests),
     browserPath: readString(settings, 'browserPath', DEFAULT_CONFIG.browserPath),
-    soundEffectsDir: readString(settings, 'soundEffectsDir', DEFAULT_CONFIG.soundEffectsDir),
     roleAnalysis: getRoleAnalysisConfig(settings)
   };
 }

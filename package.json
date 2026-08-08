@@ -2,7 +2,7 @@
   "name": "audioplugin-tts",
   "displayName": "AudioPlugin TTS 朗读助手",
   "description": "%audioplugin.description%",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "publisher": "Cameliorn",
   "icon": "icon.png",
   "license": "MIT",
@@ -31,7 +31,8 @@
   ],
   "main": "./out/src/extension.js",
   "activationEvents": [
-    "onLanguageModelTool:audioplugin_speak"
+    "onLanguageModelTool:audioplugin_speak",
+    "onLanguageModelTool:audioplugin_scene"
   ],
   "extensionKind": [
     "ui"
@@ -57,6 +58,12 @@
         "icon": "$(book)"
       },
       {
+        "command": "audioplugin.speakScenePrompt",
+        "title": "%audioplugin.commands.speakScenePrompt.title%",
+        "category": "%audioplugin.commands.category%",
+        "icon": "$(megaphone)"
+      },
+      {
         "command": "audioplugin.setApiKey",
         "title": "%audioplugin.commands.setApiKey.title%",
         "category": "%audioplugin.commands.category%",
@@ -79,12 +86,6 @@
         "title": "%audioplugin.commands.configureRoleAnalysis.title%",
         "category": "%audioplugin.commands.category%",
         "icon": "$(settings-gear)"
-      },
-      {
-        "command": "audioplugin.setSoundEffectsDir",
-        "title": "%audioplugin.commands.setSoundEffectsDir.title%",
-        "category": "%audioplugin.commands.category%",
-        "icon": "$(folder-library)"
       }
     ],
     "menus": {
@@ -95,11 +96,11 @@
         },
         {
           "command": "audioplugin.pause",
-          "when": "false"
+          "when": "audioplugin.playing"
         },
         {
           "command": "audioplugin.stop",
-          "when": "false"
+          "when": "audioplugin.playing"
         }
       ],
       "editor/context": [
@@ -111,6 +112,11 @@
         {
           "command": "audioplugin.speakDocumentWithRoles",
           "group": "1_audioplugin@2"
+        },
+        {
+          "command": "audioplugin.speakScenePrompt",
+          "group": "1_audioplugin@3",
+          "when": "editorHasSelection"
         }
       ]
     },
@@ -129,6 +135,75 @@
           ],
           "scope": "application",
           "description": "%audioplugin.configuration.properties.provider.description%"
+        },
+        "audioplugin.doubao.apiHost": {
+          "order": 10,
+          "type": "string",
+          "default": "https://openspeech.bytedance.com",
+          "scope": "application",
+          "description": "%audioplugin.configuration.properties.doubao.apiHost.description%"
+        },
+        "audioplugin.doubao.model": {
+          "order": 11,
+          "type": "string",
+          "enum": [
+            "seed-audio-1.0"
+          ],
+          "default": "seed-audio-1.0",
+          "description": "%audioplugin.configuration.properties.doubao.model.description%"
+        },
+        "audioplugin.doubao.format": {
+          "order": 12,
+          "type": "string",
+          "enum": [
+            "mp3",
+            "wav"
+          ],
+          "default": "mp3",
+          "description": "%audioplugin.configuration.properties.doubao.format.description%"
+        },
+        "audioplugin.doubao.sampleRate": {
+          "order": 13,
+          "type": "number",
+          "default": 24000,
+          "minimum": 8000,
+          "description": "%audioplugin.configuration.properties.doubao.sampleRate.description%"
+        },
+        "audioplugin.doubao.speechRate": {
+          "order": 14,
+          "type": "number",
+          "default": 0,
+          "minimum": -50,
+          "maximum": 100,
+          "description": "%audioplugin.configuration.properties.doubao.speechRate.description%"
+        },
+        "audioplugin.doubao.loudnessRate": {
+          "order": 15,
+          "type": "number",
+          "default": 0,
+          "minimum": -100,
+          "maximum": 100,
+          "description": "%audioplugin.configuration.properties.doubao.loudnessRate.description%"
+        },
+        "audioplugin.doubao.pitchRate": {
+          "order": 16,
+          "type": "number",
+          "default": 0,
+          "minimum": -12,
+          "maximum": 12,
+          "description": "%audioplugin.configuration.properties.doubao.pitchRate.description%"
+        },
+        "audioplugin.doubao.subtitleEnable": {
+          "order": 17,
+          "type": "boolean",
+          "default": false,
+          "description": "%audioplugin.configuration.properties.doubao.subtitleEnable.description%"
+        },
+        "audioplugin.doubao.extraRequestJson": {
+          "order": 18,
+          "type": "object",
+          "default": {},
+          "description": "%audioplugin.configuration.properties.doubao.extraRequestJson.description%"
         },
         "audioplugin.minimax.apiHost": {
           "order": 10,
@@ -428,12 +503,6 @@
           "type": "string",
           "default": "",
           "description": "%audioplugin.configuration.properties.roleAnalysisCustomPrompt.description%"
-        },
-        "audioplugin.soundEffectsDir": {
-          "order": 76,
-          "type": "string",
-          "default": "",
-          "description": "%audioplugin.configuration.properties.soundEffectsDir.description%"
         }
       }
     },
@@ -469,6 +538,32 @@
           },
           "required": [
             "text"
+          ]
+        }
+      },
+      {
+        "name": "audioplugin_scene",
+        "tags": [
+          "tts",
+          "audio",
+          "scene"
+        ],
+        "toolReferenceName": "audioScene",
+        "displayName": "%audioplugin.languageModelTools.scene.displayName%",
+        "modelDescription": "%audioplugin.languageModelTools.scene.modelDescription%",
+        "userDescription": "%audioplugin.languageModelTools.scene.userDescription%",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(megaphone)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "description": "%audioplugin.languageModelTools.scene.inputSchema.prompt.description%"
+            }
+          },
+          "required": [
+            "prompt"
           ]
         }
       }

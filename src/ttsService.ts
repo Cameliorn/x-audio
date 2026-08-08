@@ -6,7 +6,7 @@ import { fileExists } from './fileUtils';
 import { t } from './i18n';
 import { ApiKeyProvider } from './secretManager';
 import { AudioFormat, TtsSynthesisResult, TtsSynthesizer } from './types';
-import { sortedStringify } from './utils';
+import { clampConcurrency, cleanupStaleTempDirs, sortedStringify } from './utils';
 
 export interface SpeakRequest {
   readonly text: string;
@@ -235,37 +235,6 @@ export class TtsService {
       waiter.resolve();
     }
   }
-}
-
-async function cleanupStaleTempDirs(tempRoot: vscode.Uri, keepDir: vscode.Uri): Promise<void> {
-  try {
-    const entries = await vscode.workspace.fs.readDirectory(tempRoot);
-    for (const [name, type] of entries) {
-      if (type !== vscode.FileType.Directory) {
-        continue;
-      }
-
-      const dir = vscode.Uri.joinPath(tempRoot, name);
-      if (dir.toString() === keepDir.toString()) {
-        continue;
-      }
-
-      try {
-        await vscode.workspace.fs.delete(dir, {
-          recursive: true,
-          useTrash: false
-        });
-      } catch {
-        // 单个旧目录清理失败不阻塞
-      }
-    }
-  } catch {
-    // temp root 可能不存在
-  }
-}
-
-function clampConcurrency(value: number): number {
-  return Math.min(8, Math.max(1, Math.floor(value)));
 }
 
 function createCacheKey(

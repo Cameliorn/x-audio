@@ -16,7 +16,11 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
   ├── providers/
   │   ├── types.ts       — TtsProvider 渠道抽象接口
   │   ├── registry.ts    — 渠道注册表，按 `audioplugin.provider` 选择当前渠道
-  │   └── minimax/       — MiniMax 渠道（默认）：config/client/apiKey/index
+  │   ├── minimax/       — MiniMax 渠道（默认）：config/client/apiKey/index
+  │   └── doubao/        — 豆包音频生成（Seed-Audio 1.0，非流式 HTTP + URL 下载）：config/client/apiKey/index。
+  │                       ⚠️ 未注册到 registry，仅由豆包音频场景命令/工具使用
+  ├── doubaoScene.ts     — 豆包音频场景服务（与普通朗读完全隔离：单条 Prompt 生成综合场景）
+  ├── scenePromptTool.ts — `audioplugin_scene` vscode.LanguageModelTool 实现（供智能体调用）
   ├── secretManager.ts   — SecretStorage 中的 API 密钥（按渠道命名空间）
   ├── ttsService.ts      — 编排合成流程 + 文件缓存（只依赖 TtsSynthesizer 接口）
   ├── roleAnalysisClient.ts — OpenAI 兼容 API 客户端（DeepSeek 等），用于角色分析
@@ -24,7 +28,6 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
   ├── roleVoiceMapper.ts — 角色 → 音色 ID 映射（workspaceState 持久化角色覆盖）
   ├── roleConfirmation.ts — 角色确认 QuickPick 交互界面
   ├── multiRoleTtsService.ts — 分角色多段合成编排
-  ├── sceneSfx.ts        — 场景音效匹配与选择
   ├── voiceConfigFile.ts — `.ttsvoices.json` 配置文件读写
   ├── speakTextTool.ts   — vscode.LanguageModelTool 实现
   ├── externalAudioPlayer.ts — 外部 Chromium 浏览器音频播放

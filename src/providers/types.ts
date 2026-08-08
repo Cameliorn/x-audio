@@ -30,4 +30,6 @@ export interface TtsProvider {
     createClient(): TtsSynthesizer;
     /** 规范化并检测 API 密钥（渠道专属逻辑） */
     inspectApiKey(key: string): ApiKeyInfo;
+    /** 密钥输入框的渠道专属提示文案（缺省用通用文案） */
+    readonly apiKeyHint?: () => string;
 }

@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { getTtsConfig } from './config';
 import { fileExists } from './fileUtils';
 import { t } from './i18n';
-import { getAudioMime, getAudioMimeFromPath, getPlayerPage } from './playerPage';
+import { getAudioMime, getPlayerPage } from './playerPage';
 import { TtsAudioFile } from './ttsService';
 
 const execFileAsync = promisify(execFile);
@@ -131,6 +131,12 @@ function getChromiumApps(): ChromiumApp[] {
   ];
 }
 
+/** 播放状态：active 表示有播放任务，paused 表示已暂停 */
+export interface PlaybackState {
+  readonly active: boolean;
+  readonly paused: boolean;
+}
+
 export class AudioPlayerPanel {
   private readonly browserProfileRoot: vscode.Uri;
   private server: http.Server | undefined;
@@ -141,7 +147,6 @@ export class AudioPlayerPanel {
   private version = 0;
   private readonly pageGen = Date.now();
   private queue: readonly TtsAudioFile[] = [];
-  private currentSfxPath: string | undefined;
   private browserChild: ChildProcess | undefined;
   private pendingCommand: 'pause' | 'resume' | 'stop' | undefined;
   private isPaused = false;
@@ -149,6 +154,10 @@ export class AudioPlayerPanel {
   private browserProfilePath = '';
   private profileCleanupStarted = false;
   private lastBrowserHeartbeat = 0;
+  private readonly onDidChangePlaybackStateEmitter = new vscode.EventEmitter<PlaybackState>();
+
+  /** 播放状态变化（开始/暂停/恢复/停止），供状态栏等 UI 订阅 */
+  public readonly onDidChangePlaybackState = this.onDidChangePlaybackStateEmitter.event;
 
   public constructor(
     context: vscode.ExtensionContext
@@ -161,11 +170,11 @@ export class AudioPlayerPanel {
     this.contentSecurityPolicy = page.contentSecurityPolicy;
   }
 
-  public async play(audioFile: TtsAudioFile, soundEffectFile?: string): Promise<void> {
-    await this.playQueue([audioFile], soundEffectFile);
+  public async play(audioFile: TtsAudioFile): Promise<void> {
+    await this.playQueue([audioFile]);
   }
 
-  public async playQueue(files: readonly TtsAudioFile[], soundEffectFile?: string): Promise<void> {
+  public async playQueue(files: readonly TtsAudioFile[]): Promise<void> {
     if (files.length === 0) {
       return;
     }
@@ -175,7 +184,7 @@ export class AudioPlayerPanel {
     this.isPaused = false;
     this.pendingCommand = undefined;
     this.browserActive = true;
-    this.currentSfxPath = soundEffectFile && soundEffectFile.trim().length > 0 ? soundEffectFile : undefined;
+    this.onDidChangePlaybackStateEmitter.fire({ active: true, paused: false });
     await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
     const url = await this.ensureServerUrl();
 
@@ -215,6 +224,7 @@ export class AudioPlayerPanel {
       this.pendingCommand = 'pause';
       vscode.window.showInformationMessage(t('player.pauseInfo'));
     }
+    this.onDidChangePlaybackStateEmitter.fire({ active: true, paused: this.isPaused });
   }
 
   public stop(): void {
@@ -222,15 +232,17 @@ export class AudioPlayerPanel {
     this.browserActive = false;
     this.pendingCommand = 'stop';
     this.queue = [];
-    this.currentSfxPath = undefined;
     if (this.browserChild && this.browserChild.exitCode === null) {
       forceKillProcess(this.browserChild);
     }
     this.browserChild = undefined;
+    this.onDidChangePlaybackStateEmitter.fire({ active: false, paused: false });
     vscode.window.showInformationMessage(t('player.stopInfo'));
   }
 
   public dispose(): void {
+    this.onDidChangePlaybackStateEmitter.fire({ active: false, paused: false });
+    this.onDidChangePlaybackStateEmitter.dispose();
     this.server?.close();
     this.server = undefined;
     this.serverUrl = undefined;
@@ -303,7 +315,7 @@ export class AudioPlayerPanel {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store'
       });
-      response.end(JSON.stringify({ version: this.version, count: this.queue.length, pageGen: this.pageGen, sfx: !!this.currentSfxPath, command }));
+      response.end(JSON.stringify({ version: this.version, count: this.queue.length, pageGen: this.pageGen, command }));
       return;
     }
 
@@ -311,11 +323,6 @@ export class AudioPlayerPanel {
       const indexParam = Number.parseInt(requestUrl.searchParams.get('index') ?? '', 10);
       const index = Number.isInteger(indexParam) && indexParam >= 0 ? indexParam : 0;
       await this.serveAudio(request, response, index);
-      return;
-    }
-
-    if (requestUrl.pathname === `/${this.routeToken}/sfx`) {
-      await this.serveSoundEffect(request, response);
       return;
     }
 
@@ -378,42 +385,6 @@ export class AudioPlayerPanel {
       response.once('close', resolve);
       stream.pipe(response);
     });
-  }
-
-  private async serveSoundEffect(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
-    if (!this.currentSfxPath) {
-      response.writeHead(404);
-      response.end();
-      return;
-    }
-
-    try {
-      const sfxPath = this.currentSfxPath;
-      const stat = await fs.promises.stat(sfxPath);
-      response.writeHead(200, {
-        'Content-Type': getAudioMimeFromPath(sfxPath),
-        'Content-Length': stat.size,
-        'Cache-Control': 'no-store',
-        'Referrer-Policy': 'no-referrer',
-        'X-Content-Type-Options': 'nosniff'
-      });
-
-      if (request.method === 'HEAD') {
-        response.end();
-        return;
-      }
-
-      await new Promise<void>((resolve, reject) => {
-        const stream = fs.createReadStream(sfxPath);
-        stream.once('error', reject);
-        response.once('finish', resolve);
-        response.once('close', resolve);
-        stream.pipe(response);
-      });
-    } catch {
-      response.writeHead(404);
-      response.end();
-    }
   }
 }
 
