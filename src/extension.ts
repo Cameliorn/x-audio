@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { RoleAnalysisProvider, getRoleAnalysisConfig } from './config';
 import { MissingApiKeyError, UserVisibleError, getErrorMessage } from './errors';
@@ -199,6 +200,9 @@ async function speakDocumentWithRoles(
       },
       dirConfig?.voiceParams));
 
+    if (sceneSfxFile) {
+      vscode.window.showInformationMessage(t('extension.sfxPlaying', path.basename(sceneSfxFile)));
+    }
     await audioPlayer?.playQueue(files, sceneSfxFile);
     vscode.window.setStatusBarMessage(t('extension.synthesizeComplete', files.length, totalCharacters), 5000);
   } catch (error) {
