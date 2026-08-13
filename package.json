@@ -2,7 +2,7 @@
   "name": "audioplugin-tts",
   "displayName": "AudioPlugin TTS 朗读助手",
   "description": "%audioplugin.description%",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "publisher": "Cameliorn",
   "icon": "icon.png",
   "license": "MIT",

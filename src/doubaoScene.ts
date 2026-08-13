@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
-import { handleUserFacingError } from './errors';
+import { handleUserFacingError, isRetryableError } from './errors';
 import { AudioPlayerPanel } from './externalAudioPlayer';
 import { t } from './i18n';
 import { doubaoProvider } from './providers/doubao';
@@ -8,7 +8,7 @@ import { DoubaoClient } from './providers/doubao/client';
 import { getDoubaoTtsConfig } from './providers/doubao/config';
 import { SecretManager } from './secretManager';
 import { TtsAudioFile } from './ttsService';
-import { cleanupStaleTempDirs, getSelectedText } from './utils';
+import { cleanupStaleTempDirs, getSelectedText, withRetries } from './utils';
 
 /** Seed-Audio 1.0 text_prompt 上限（字符） */
 export const DOUBAO_PROMPT_MAX_LENGTH = 2048;
@@ -51,15 +51,19 @@ export class DoubaoSceneService {
   /** 单条 Prompt 合成音频场景并返回音频文件（纯 Prompt 生成模式，不指定音色） */
   public async generateScene(prompt: string, token: vscode.CancellationToken): Promise<TtsAudioFile> {
     const apiKey = await this.secretManager.requireApiKey();
-    const result = await this.client.synthesizeSpeech(
-      prompt,
-      '',
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      apiKey,
+    const result = await withRetries(
+      () => this.client.synthesizeSpeech(
+        prompt,
+        '',
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        apiKey,
+        token
+      ),
+      isRetryableError,
       token
     );
 

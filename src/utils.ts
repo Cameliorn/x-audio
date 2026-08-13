@@ -110,3 +110,54 @@ export function createAbortController(
 
   return { controller, clear };
 }
+
+export interface RetryOptions {
+  /** 最大重试次数（不含首次尝试），默认 2 */
+  readonly maxRetries?: number;
+  /** 首次重试前的退避毫秒数，之后指数翻倍，默认 500 */
+  readonly baseDelayMs?: number;
+}
+
+/**
+ * 带指数退避的重试包装：task 失败且 shouldRetry 判定可重试时退避后重试。
+ * 取消令牌触发时立即终止退避等待并抛出 CancellationError。
+ */
+export async function withRetries<T>(
+  task: () => Promise<T>,
+  shouldRetry: (error: unknown) => boolean,
+  token: vscode.CancellationToken,
+  options: RetryOptions = {}
+): Promise<T> {
+  const maxRetries = options.maxRetries ?? 2;
+  const baseDelayMs = options.baseDelayMs ?? 500;
+
+  let attempt = 0;
+  for (; ;) {
+    try {
+      return await task();
+    } catch (error) {
+      if (attempt >= maxRetries || !shouldRetry(error) || token.isCancellationRequested) {
+        throw error;
+      }
+      attempt++;
+      await delayWithCancellation(baseDelayMs * 2 ** (attempt - 1), token);
+    }
+  }
+}
+
+async function delayWithCancellation(ms: number, token: vscode.CancellationToken): Promise<void> {
+  if (token.isCancellationRequested) {
+    throw new vscode.CancellationError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      subscription.dispose();
+      resolve();
+    }, ms);
+    const subscription = token.onCancellationRequested(() => {
+      clearTimeout(timer);
+      reject(new vscode.CancellationError());
+    });
+  });
+}

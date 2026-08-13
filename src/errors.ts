@@ -23,7 +23,9 @@ export class MiniMaxApiError extends UserVisibleError {
   public constructor(
     message: string,
     public readonly traceId?: string,
-    public readonly statusCode?: number
+    public readonly statusCode?: number,
+    /** 触发本错误的 HTTP 状态码（业务错误无此字段），用于判断是否可重试 */
+    public readonly httpStatus?: number
   ) {
     super(message);
     this.name = 'MiniMaxApiError';
@@ -34,11 +36,53 @@ export class DoubaoApiError extends UserVisibleError {
   public constructor(
     message: string,
     public readonly traceId?: string,
-    public readonly statusCode?: number
+    public readonly statusCode?: number,
+    /** 触发本错误的 HTTP 状态码（业务错误无此字段），用于判断是否可重试 */
+    public readonly httpStatus?: number
   ) {
     super(message);
     this.name = 'DoubaoApiError';
   }
+}
+
+/** 网络层可重试错误码（连接重置、DNS 瞬时失败等） */
+const RETRYABLE_NETWORK_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EAI_AGAIN',
+  'ENOTFOUND',
+  'EPIPE'
+]);
+
+/**
+ * 判断合成请求失败是否值得自动重试：
+ * HTTP 429/5xx 与网络层异常可重试；业务错误与取消不可重试。
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof vscode.CancellationError) {
+    return false;
+  }
+
+  if (error instanceof MiniMaxApiError || error instanceof DoubaoApiError) {
+    return error.httpStatus !== undefined && (error.httpStatus === 429 || error.httpStatus >= 500);
+  }
+
+  if (error instanceof UserVisibleError) {
+    return false;
+  }
+
+  if (error instanceof TypeError) {
+    // fetch/undici 的网络层失败（连接中断、DNS 等）表现为 TypeError
+    return true;
+  }
+
+  if (error instanceof Error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return typeof code === 'string' && RETRYABLE_NETWORK_CODES.has(code);
+  }
+
+  return false;
 }
 
 export function getErrorMessage(error: unknown): string {

@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
-import { DoubaoApiError, UserVisibleError } from '../../errors';
+import { DoubaoApiError } from '../../errors';
 import { t } from '../../i18n';
 import { TtsSynthesisResult, TtsSynthesizer } from '../../types';
 import { clampNumber, createAbortController, sortedStringify } from '../../utils';
+import { FetchLike, translateFetchError } from '../shared';
 import { DoubaoTtsConfig, normalizeApiHost } from './config';
 
-export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
+export type { FetchLike };
 
 /** 请求级参数 → 豆包 audio_config 偏移值的换算（speed 倍速 → speech_rate 偏移） */
 const SPEED_TO_RATE = 100;
@@ -63,7 +64,7 @@ export class DoubaoClient implements TtsSynthesizer {
       const body = parseDoubaoResponse(bodyText, response.status);
 
       if (!response.ok) {
-        throw toDoubaoApiError(body, logid, t('doubao.httpError', response.status));
+        throw toDoubaoApiError(body, logid, t('doubao.httpError', response.status), response.status);
       }
 
       if (body.code !== undefined && body.code !== 0) {
@@ -90,15 +91,7 @@ export class DoubaoClient implements TtsSynthesizer {
         }
       };
     } catch (error) {
-      if (timedOut) {
-        throw new UserVisibleError(t('doubao.timeout', config.requestTimeoutMs / 1000));
-      }
-
-      if (token.isCancellationRequested) {
-        throw new vscode.CancellationError();
-      }
-
-      throw error;
+      translateFetchError(error, timedOut, token, t('doubao.timeout', config.requestTimeoutMs / 1000));
     } finally {
       clear();
     }
@@ -110,7 +103,7 @@ export class DoubaoClient implements TtsSynthesizer {
   ): Promise<Uint8Array> {
     const response = await this.fetchImpl(url, { signal });
     if (!response.ok) {
-      throw new DoubaoApiError(t('doubao.audioDownloadFailed', response.status));
+      throw new DoubaoApiError(t('doubao.audioDownloadFailed', response.status), undefined, undefined, response.status);
     }
 
     return new Uint8Array(await response.arrayBuffer());
@@ -219,10 +212,10 @@ export function parseDoubaoResponse(bodyText: string, _status: number): DoubaoRe
   }
 }
 
-export function toDoubaoApiError(body: DoubaoResponse, logid: string | undefined, fallback: string): DoubaoApiError {
+export function toDoubaoApiError(body: DoubaoResponse, logid: string | undefined, fallback: string, httpStatus?: number): DoubaoApiError {
   const hint = body.code !== undefined ? doubaoErrorHint(body.code) : undefined;
   const message = hint ?? (typeof body.message === 'string' && body.message.length > 0 ? body.message : fallback);
-  return new DoubaoApiError(message, logid, body.code);
+  return new DoubaoApiError(message, logid, body.code, httpStatus);
 }
 
 /** 常见错误码 → 用户可操作的提示文案（其余错误保留原始 message） */

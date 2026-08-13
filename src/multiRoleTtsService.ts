@@ -4,7 +4,6 @@ import { UserVisibleError } from './errors';
 import { t } from './i18n';
 import { StorySegment, applyTextModifiers, splitTextIntoChunks } from './roleAnalyzer';
 import { ConfigProvider, TtsAudioFile, TtsService } from './ttsService';
-import { clampConcurrency } from './utils';
 import { VoiceParams, applyVoiceConfig } from './voiceConfigFile';
 
 export interface RoleSpeechSegment extends StorySegment {
@@ -50,8 +49,11 @@ export class MultiRoleTtsService {
 
     const files: TtsAudioFile[] = new Array<TtsAudioFile>(pieces.length);
     let completed = 0;
+    let failed = false;
+    let firstError: unknown;
 
-    // 内部令牌：转发外部取消，同时在任一片段失败时快速取消其余在途请求
+    // 内部令牌：转发外部取消，同时在任一片段失败时快速取消其余在途请求。
+    // 并发限制由 TtsService 单层控制，这里全部并行提交。
     const cts = new vscode.CancellationTokenSource();
     const onExternalCancel = token.onCancellationRequested(() => cts.cancel());
     if (token.isCancellationRequested) {
@@ -59,72 +61,42 @@ export class MultiRoleTtsService {
     }
 
     try {
-      const concurrency = clampConcurrency(this.configProvider().maxConcurrentRequests);
-      await runConcurrent(pieces.length, concurrency, async (index) => {
-        const piece = pieces[index];
-        const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece, voiceParams);
-        const file = await this.ttsService.synthesizeToFile({
-          text: finalText,
-          voiceId: piece.voiceId,
-          speed,
-          pitch,
-          vol,
-          extraParams: emotion ? { emotion } : undefined
-        }, cts.token);
-        files[index] = file;
-        completed++;
-        onProgress?.(completed, pieces.length, piece);
-      }, () => cts.cancel());
+      await Promise.all(pieces.map(async (piece, index) => {
+        try {
+          if (cts.token.isCancellationRequested) {
+            throw new vscode.CancellationError();
+          }
+          const { speed, pitch, vol, emotion, finalText } = resolveVoiceParams(piece, voiceParams);
+          const file = await this.ttsService.synthesizeToFile({
+            text: finalText,
+            voiceId: piece.voiceId,
+            speed,
+            pitch,
+            vol,
+            extraParams: emotion ? { emotion } : undefined
+          }, cts.token);
+          files[index] = file;
+          completed++;
+          onProgress?.(completed, pieces.length, piece);
+        } catch (error) {
+          // 只传播第一个错误；其余片段因取消产生的异常直接吞掉
+          if (!failed) {
+            failed = true;
+            firstError = error;
+            cts.cancel();
+          }
+        }
+      }));
     } finally {
       onExternalCancel.dispose();
       cts.dispose();
     }
 
-    return files;
-  }
-}
-
-/**
- * 固定并发数的任务池：最多同时运行 limit 个 worker，结果按传入顺序写入调用方。
- * 任一 worker 失败时触发 onFirstError（用于取消在途请求），其余 worker 的取消
- * 异常会被吞掉，最终只抛出第一个错误，避免未处理的 Promise 拒绝。
- */
-async function runConcurrent(
-  total: number,
-  concurrency: number,
-  worker: (index: number) => Promise<void>,
-  onFirstError: () => void
-): Promise<void> {
-  let nextIndex = 0;
-  let failed = false;
-  let firstError: unknown;
-
-  async function run(): Promise<void> {
-    while (!failed && nextIndex < total) {
-      const index = nextIndex;
-      nextIndex++;
-      try {
-        await worker(index);
-      } catch (error) {
-        if (!failed) {
-          failed = true;
-          firstError = error;
-          onFirstError();
-        }
-        return;
-      }
+    if (failed) {
+      throw firstError;
     }
-  }
 
-  const workers: Promise<void>[] = [];
-  const workerCount = Math.min(concurrency, total);
-  for (let i = 0; i < workerCount; i++) {
-    workers.push(run());
-  }
-  await Promise.all(workers);
-
-  if (failed) {
-    throw firstError;
+    return files;
   }
 }
 

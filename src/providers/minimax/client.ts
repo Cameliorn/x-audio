@@ -4,14 +4,15 @@ import { MiniMaxApiError, UserVisibleError } from '../../errors';
 import { t } from '../../i18n';
 import { TtsSynthesisResult, TtsSynthesizer } from '../../types';
 import { createAbortController, sortedStringify } from '../../utils';
+import { FetchLike, translateFetchError } from '../shared';
 import { MiniMaxTtsConfig, normalizeApiHost } from './config';
 
-export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
+export type { FetchLike };
 
 export class MiniMaxClient implements TtsSynthesizer {
   public constructor(
-        private readonly configProvider: () => MiniMaxTtsConfig,
-        private readonly fetchImpl: FetchLike = fetch
+    private readonly configProvider: () => MiniMaxTtsConfig,
+    private readonly fetchImpl: FetchLike = fetch
   ) { }
 
   public get outputFormat(): MiniMaxTtsConfig['format'] {
@@ -59,7 +60,7 @@ export class MiniMaxClient implements TtsSynthesizer {
       const body = parseMiniMaxResponse(bodyText, response.status);
 
       if (!response.ok) {
-        throw toMiniMaxApiError(body, t('minimax.httpError', response.status));
+        throw toMiniMaxApiError(body, t('minimax.httpError', response.status), response.status);
       }
 
       const statusCode = body.base_resp?.status_code ?? 0;
@@ -77,15 +78,7 @@ export class MiniMaxClient implements TtsSynthesizer {
         extraInfo: body.extra_info
       };
     } catch (error) {
-      if (timedOut) {
-        throw new UserVisibleError(t('minimax.timeout', config.requestTimeoutMs / 1000));
-      }
-
-      if (token.isCancellationRequested) {
-        throw new vscode.CancellationError();
-      }
-
-      throw error;
+      translateFetchError(error, timedOut, token, t('minimax.timeout', config.requestTimeoutMs / 1000));
     } finally {
       clear();
     }
@@ -93,31 +86,31 @@ export class MiniMaxClient implements TtsSynthesizer {
 }
 
 interface MiniMaxBaseResponse {
-    readonly status_code?: number;
-    readonly status_msg?: string;
+  readonly status_code?: number;
+  readonly status_msg?: string;
 }
 
 interface MiniMaxTtsResponse {
-    readonly data?: {
-        readonly audio?: string;
-        readonly status?: number;
-    } | null;
-    readonly extra_info?: Record<string, unknown>;
-    readonly trace_id?: string;
-    readonly base_resp?: MiniMaxBaseResponse;
+  readonly data?: {
+    readonly audio?: string;
+    readonly status?: number;
+  } | null;
+  readonly extra_info?: Record<string, unknown>;
+  readonly trace_id?: string;
+  readonly base_resp?: MiniMaxBaseResponse;
 }
 
 export function buildMiniMaxTtsPayload(
   text: string,
   config: MiniMaxTtsConfig,
   params: {
-        voiceId?: string;
-        speed?: number;
-        pitch?: number;
-        vol?: number;
-        emotion?: string;
-        model?: string;
-    } = {}
+    voiceId?: string;
+    speed?: number;
+    pitch?: number;
+    vol?: number;
+    emotion?: string;
+    model?: string;
+  } = {}
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     ...config.extraRequestJson,
@@ -245,7 +238,7 @@ function parseMiniMaxResponse(bodyText: string, httpStatus: number): MiniMaxTtsR
   }
 }
 
-function toMiniMaxApiError(response: MiniMaxTtsResponse, fallback: string): MiniMaxApiError {
+function toMiniMaxApiError(response: MiniMaxTtsResponse, fallback: string, httpStatus?: number): MiniMaxApiError {
   const statusCode = response.base_resp?.status_code;
   const statusMessage = response.base_resp?.status_msg;
   const parts = [fallback];
@@ -258,5 +251,5 @@ function toMiniMaxApiError(response: MiniMaxTtsResponse, fallback: string): Mini
     parts.push(t('minimax.traceId', response.trace_id));
   }
 
-  return new MiniMaxApiError(parts.join(' '), response.trace_id, statusCode);
+  return new MiniMaxApiError(parts.join(' '), response.trace_id, statusCode, httpStatus);
 }

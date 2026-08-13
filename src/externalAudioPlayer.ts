@@ -15,6 +15,11 @@ import { TtsAudioFile } from './ttsService';
 const execFileAsync = promisify(execFile);
 
 const BROWSER_REUSE_WINDOW_MS = 15000;
+/** 播放结束/停止/窗口消失后，空闲超过该时长即回收浏览器与本地服务器 */
+const IDLE_CLEANUP_MS = 5 * 60 * 1000;
+const IDLE_CHECK_INTERVAL_MS = 60 * 1000;
+/** 非 file 协议音频的最大读入体积（file 协议走流式读取，无此限制） */
+const MAX_NON_FILE_AUDIO_BYTES = 64 * 1024 * 1024;
 
 function forceKillProcess(child: ChildProcess): void {
   if (child.pid && child.exitCode === null) {
@@ -151,9 +156,13 @@ export class AudioPlayerPanel {
   private pendingCommand: 'pause' | 'resume' | 'stop' | undefined;
   private isPaused = false;
   private browserActive = false;
+  private browserUntracked = false;
   private browserProfilePath = '';
-  private profileCleanupStarted = false;
+  private profileCounter = 0;
+  private profileRootReady = false;
   private lastBrowserHeartbeat = 0;
+  private lastActivity = 0;
+  private idleCheckTimer: ReturnType<typeof setInterval> | undefined;
   private readonly onDidChangePlaybackStateEmitter = new vscode.EventEmitter<PlaybackState>();
 
   /** 播放状态变化（开始/暂停/恢复/停止），供状态栏等 UI 订阅 */
@@ -163,8 +172,6 @@ export class AudioPlayerPanel {
     context: vscode.ExtensionContext
   ) {
     this.browserProfileRoot = vscode.Uri.joinPath(context.globalStorageUri, 'browser-profile');
-    // 每次创建实例使用不同的 profile 目录，避免与上次未退出的浏览器进程冲突
-    this.browserProfilePath = path.join(this.browserProfileRoot.fsPath, `session-${Date.now()}`);
     const page = getPlayerPage(this.pageGen);
     this.html = page.html;
     this.contentSecurityPolicy = page.contentSecurityPolicy;
@@ -184,9 +191,14 @@ export class AudioPlayerPanel {
     this.isPaused = false;
     this.pendingCommand = undefined;
     this.browserActive = true;
+    this.lastActivity = Date.now();
     this.onDidChangePlaybackStateEmitter.fire({ active: true, paused: false });
-    await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
+    if (!this.profileRootReady) {
+      await vscode.workspace.fs.createDirectory(this.browserProfileRoot);
+      this.profileRootReady = true;
+    }
     const url = await this.ensureServerUrl();
+    this.ensureIdleCheckTimer();
 
     // 浏览器窗口仍在线时直接复用，页面轮询 version 端点会自动加载新队列
     if (this.canReuseBrowser()) {
@@ -198,11 +210,10 @@ export class AudioPlayerPanel {
     }
     this.browserChild = undefined;
 
-    if (!this.profileCleanupStarted) {
-      this.profileCleanupStarted = true;
-      await cleanupBrowserProfileDirs(this.browserProfileRoot, this.browserProfilePath);
-    }
-    await launchBrowserWindow(url, this.browserProfileRoot.fsPath, this.browserProfilePath,
+    // 每次启动轮换 profile 目录，避免上一个被强杀的进程留下锁文件导致启动失败
+    this.browserProfilePath = path.join(this.browserProfileRoot.fsPath, `session-${Date.now()}-${this.profileCounter++}`);
+    await cleanupBrowserProfileDirs(this.browserProfileRoot, this.browserProfilePath);
+    this.browserUntracked = !await launchBrowserWindow(url, this.browserProfileRoot.fsPath, this.browserProfilePath,
       (child, profilePath) => {
         this.browserChild = child;
         this.browserProfilePath = profilePath || this.browserProfilePath;
@@ -232,15 +243,24 @@ export class AudioPlayerPanel {
     this.browserActive = false;
     this.pendingCommand = 'stop';
     this.queue = [];
+    this.lastActivity = Date.now();
     if (this.browserChild && this.browserChild.exitCode === null) {
       forceKillProcess(this.browserChild);
+    } else if (this.browserUntracked) {
+      // 通过 open/openExternal 回退打开的窗口无法被终止，提示用户手动关闭
+      vscode.window.showInformationMessage(t('player.closeWindowManually'));
     }
     this.browserChild = undefined;
+    this.browserUntracked = false;
     this.onDidChangePlaybackStateEmitter.fire({ active: false, paused: false });
     vscode.window.showInformationMessage(t('player.stopInfo'));
   }
 
   public dispose(): void {
+    if (this.idleCheckTimer !== undefined) {
+      clearInterval(this.idleCheckTimer);
+      this.idleCheckTimer = undefined;
+    }
     this.onDidChangePlaybackStateEmitter.fire({ active: false, paused: false });
     this.onDidChangePlaybackStateEmitter.dispose();
     this.server?.close();
@@ -255,11 +275,47 @@ export class AudioPlayerPanel {
 
   private canReuseBrowser(): boolean {
     return Boolean(
+      !this.browserUntracked &&
       this.browserChild &&
       this.browserChild.exitCode === null &&
       this.lastBrowserHeartbeat > 0 &&
       Date.now() - this.lastBrowserHeartbeat < BROWSER_REUSE_WINDOW_MS
     );
+  }
+
+  /** 播放空闲超过 IDLE_CLEANUP_MS 后回收浏览器与本地服务器，避免常驻占用资源 */
+  private ensureIdleCheckTimer(): void {
+    if (this.idleCheckTimer !== undefined) {
+      return;
+    }
+
+    this.idleCheckTimer = setInterval(() => {
+      const now = Date.now();
+      // 心跳长期消失说明窗口已关闭；停止播放后长时间无新播放也应回收
+      const windowGone = this.lastBrowserHeartbeat > 0 && now - this.lastBrowserHeartbeat > IDLE_CLEANUP_MS;
+      const stoppedAndIdle = !this.browserActive && now - this.lastActivity > IDLE_CLEANUP_MS;
+      if (!windowGone && !stoppedAndIdle) {
+        return;
+      }
+
+      if (this.browserChild && this.browserChild.exitCode === null) {
+        forceKillProcess(this.browserChild);
+      }
+      this.browserChild = undefined;
+      this.browserUntracked = false;
+      if (this.browserActive) {
+        this.browserActive = false;
+        this.onDidChangePlaybackStateEmitter.fire({ active: false, paused: false });
+      }
+      this.server?.close();
+      this.server = undefined;
+      this.serverUrl = undefined;
+      void deleteBrowserProfile(this.browserProfilePath);
+      if (this.idleCheckTimer !== undefined) {
+        clearInterval(this.idleCheckTimer);
+        this.idleCheckTimer = undefined;
+      }
+    }, IDLE_CHECK_INTERVAL_MS);
   }
 
   private async ensureServerUrl(): Promise<string> {
@@ -359,6 +415,11 @@ export class AudioPlayerPanel {
 
     if (audioFile.uri.scheme !== 'file') {
       const audioBytes = await vscode.workspace.fs.readFile(audioFile.uri);
+      if (audioBytes.byteLength > MAX_NON_FILE_AUDIO_BYTES) {
+        response.writeHead(413);
+        response.end();
+        return;
+      }
       response.writeHead(200, {
         ...headers,
         'Content-Length': audioBytes.byteLength
@@ -435,25 +496,25 @@ async function deleteBrowserProfile(profilePath: string): Promise<void> {
   }
 }
 
+/** 返回 true 表示成功 spawn 了可跟踪的浏览器进程；false 表示回退到系统 open，进程不可跟踪 */
 async function launchBrowserWindow(
   url: string,
   browserProfileRoot: string,
   existingProfilePath: string,
   onLaunch: (child: ChildProcess, profilePath: string) => void
-): Promise<void> {
+): Promise<boolean> {
   // 用户手动指定的浏览器路径
   const config = getTtsConfig();
   if (config.browserPath.trim().length > 0) {
     const result = await tryLaunchChromiumExecutable(config.browserPath.trim(), url, browserProfileRoot, existingProfilePath);
     if (result) {
       onLaunch(result.child, result.profilePath);
-      return;
+      return true;
     }
   }
 
   if (process.platform === 'darwin') {
-    await launchOnMac(url, browserProfileRoot, existingProfilePath, onLaunch);
-    return;
+    return launchOnMac(url, browserProfileRoot, existingProfilePath, onLaunch);
   }
 
   // Windows / Linux: 尝试直接启动 Chromium 浏览器
@@ -462,12 +523,12 @@ async function launchBrowserWindow(
     const result = await tryLaunchChromiumApp(app, url, browserProfileRoot, existingProfilePath);
     if (result) {
       onLaunch(result.child, result.profilePath);
-      return;
+      return true;
     }
   }
 
   if (await vscode.env.openExternal(vscode.Uri.parse(url))) {
-    return;
+    return false;
   }
 
   throw new Error(t('player.openFailed'));
@@ -478,28 +539,28 @@ async function launchOnMac(
   browserProfileRoot: string,
   existingProfilePath: string,
   onLaunch: (child: ChildProcess, profilePath: string) => void
-): Promise<void> {
+): Promise<boolean> {
   const apps = getChromiumApps();
   for (const app of apps) {
     const result = await tryLaunchChromiumApp(app, url, browserProfileRoot, existingProfilePath);
     if (result) {
       onLaunch(result.child, result.profilePath);
-      return;
+      return true;
     }
   }
 
   for (const app of apps) {
     if (await tryOpen(['-na', app.name, '--args', `--app=${url}`, '--window-size=420,190', '--autoplay-policy=no-user-gesture-required'])) {
-      return;
+      return false;
     }
   }
 
   if (await tryOpen(['-a', 'Safari', url])) {
-    return;
+    return false;
   }
 
   if (await tryOpen([url])) {
-    return;
+    return false;
   }
 
   throw new Error(t('player.noBrowser'));

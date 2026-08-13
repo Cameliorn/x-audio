@@ -49,6 +49,7 @@ const zhCn: MessageBundle = {
   'player.resumeInfo': '播放已恢复。',
   'player.stopInfo': '播放已停止。',
   'player.openFailed': '无法打开外部播放器页面。',
+  'player.closeWindowManually': '播放器窗口是通过系统回退方式打开的，无法自动关闭，请手动关闭该窗口。',
   'player.noBrowser': '无法打开外部播放器页面。请确认系统已安装 Safari、Chrome、Edge 或其他浏览器。',
   'player.noActivePlayback': '当前没有活跃的播放，请先朗读文本。',
 
@@ -205,6 +206,7 @@ const en: MessageBundle = {
   'player.resumeInfo': 'Playback resumed.',
   'player.stopInfo': 'Playback stopped.',
   'player.openFailed': 'Failed to open external player page.',
+  'player.closeWindowManually': 'The player window was opened via a system fallback and cannot be closed automatically. Please close it manually.',
   'player.noBrowser': 'Failed to open external player page. Please make sure Safari, Chrome, Edge, or another browser is installed.',
   'player.noActivePlayback': 'No active playback. Please speak some text first.',
 

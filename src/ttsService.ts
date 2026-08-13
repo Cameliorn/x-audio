@@ -1,12 +1,12 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 import { TtsConfig, getTtsConfig } from './config';
-import { UserVisibleError } from './errors';
+import { UserVisibleError, isRetryableError } from './errors';
 import { fileExists } from './fileUtils';
 import { t } from './i18n';
 import { ApiKeyProvider } from './secretManager';
 import { AudioFormat, TtsSynthesisResult, TtsSynthesizer } from './types';
-import { clampConcurrency, cleanupStaleTempDirs, sortedStringify } from './utils';
+import { clampConcurrency, cleanupStaleTempDirs, sortedStringify, withRetries } from './utils';
 
 export interface SpeakRequest {
   readonly text: string;
@@ -37,12 +37,15 @@ export type ConfigProvider = () => TtsConfig;
 
 export class TtsService {
   private readonly inFlight = new Map<string, Promise<TtsAudioFile>>();
+  private readonly pendingTasks = new Set<Promise<unknown>>();
   private readonly tempDir: vscode.Uri;
   private readonly waiters: Waiter[] = [];
   private tempCleanupStarted = false;
   private tempCounter = 0;
   private cacheAddCount = 0;
   private activeRequests = 0;
+  private cacheRootReady = false;
+  private startupCleanupTimer: ReturnType<typeof setTimeout> | undefined;
 
   // 每新增 CLEANUP_INTERVAL 个缓存文件才触发一次清理扫描，避免每次都遍历目录
   private static readonly CLEANUP_INTERVAL = 10;
@@ -75,7 +78,7 @@ export class TtsService {
     }
 
     const cacheRoot = vscode.Uri.joinPath(this.globalStorageUri, 'audio-cache');
-    await vscode.workspace.fs.createDirectory(cacheRoot);
+    await this.ensureCacheRootReady(cacheRoot);
 
     const cacheKey = createCacheKey(
       text,
@@ -88,6 +91,32 @@ export class TtsService {
       this.client.configFingerprint()
     );
 
+    // 无论缓存开关，同内容的在途请求都共享同一次合成
+    const inFlight = this.inFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const synthesis = this.startSynthesis(request, text, config, cacheRoot, cacheKey, token);
+    this.inFlight.set(cacheKey, synthesis);
+
+    try {
+      return await synthesis;
+    } finally {
+      if (this.inFlight.get(cacheKey) === synthesis) {
+        this.inFlight.delete(cacheKey);
+      }
+    }
+  }
+
+  private async startSynthesis(
+    request: SpeakRequest,
+    text: string,
+    config: TtsConfig,
+    cacheRoot: vscode.Uri,
+    cacheKey: string,
+    token: vscode.CancellationToken
+  ): Promise<TtsAudioFile> {
     if (config.cacheEnabled) {
       const fileUri = vscode.Uri.joinPath(cacheRoot, `${cacheKey}.${this.client.outputFormat}`);
 
@@ -100,21 +129,7 @@ export class TtsService {
         };
       }
 
-      const inFlight = this.inFlight.get(cacheKey);
-      if (inFlight) {
-        return inFlight;
-      }
-
-      const synthesis = this.synthesizeUncachedToFile(request, text, config, cacheRoot, fileUri, token);
-      this.inFlight.set(cacheKey, synthesis);
-
-      try {
-        return await synthesis;
-      } finally {
-        if (this.inFlight.get(cacheKey) === synthesis) {
-          this.inFlight.delete(cacheKey);
-        }
-      }
+      return this.synthesizeUncachedToFile(request, text, config, cacheRoot, fileUri, token);
     }
 
     // 缓存关闭时使用独立会话临时目录，避免在音频缓存里永久堆积
@@ -123,7 +138,37 @@ export class TtsService {
     return this.synthesizeUncachedToFile(request, text, config, this.tempDir, tempUri, token);
   }
 
+  /** 激活后延迟执行一次缓存清理扫描，避免旧缓存无限堆积；失败不影响使用 */
+  public scheduleCacheCleanup(delayMs = 15000): void {
+    this.startupCleanupTimer = setTimeout(() => {
+      this.startupCleanupTimer = undefined;
+      void (async () => {
+        const config = this.configProvider();
+        if (!config.cacheEnabled) {
+          return;
+        }
+
+        const cacheRoot = vscode.Uri.joinPath(this.globalStorageUri, 'audio-cache');
+        try {
+          await cleanupAudioCache(cacheRoot, config.cacheMaxSizeMb, cacheRoot);
+        } catch {
+          // 启动清理失败不阻塞
+        }
+      })();
+    }, delayMs);
+  }
+
   public async dispose(): Promise<void> {
+    if (this.startupCleanupTimer !== undefined) {
+      clearTimeout(this.startupCleanupTimer);
+      this.startupCleanupTimer = undefined;
+    }
+
+    // 等待在途合成写入结束，避免删掉仍在写入的临时目录
+    if (this.pendingTasks.size > 0) {
+      await Promise.allSettled([...this.pendingTasks]);
+    }
+
     try {
       await vscode.workspace.fs.delete(this.tempDir, {
         recursive: true,
@@ -132,6 +177,14 @@ export class TtsService {
     } catch {
       // 临时目录可能不存在，忽略
     }
+  }
+
+  private async ensureCacheRootReady(cacheRoot: vscode.Uri): Promise<void> {
+    if (this.cacheRootReady) {
+      return;
+    }
+    await vscode.workspace.fs.createDirectory(cacheRoot);
+    this.cacheRootReady = true;
   }
 
   private async ensureTempDirReady(): Promise<void> {
@@ -150,17 +203,21 @@ export class TtsService {
     fileUri: vscode.Uri,
     token: vscode.CancellationToken
   ): Promise<TtsAudioFile> {
-    return this.runWithConcurrencyLimit(token, async () => {
+    const task = this.runWithConcurrencyLimit(clampConcurrency(config.maxConcurrentRequests), token, async () => {
       const apiKey = await this.apiKeyProvider.requireApiKey();
-      const result: TtsSynthesisResult = await this.client.synthesizeSpeech(
-        text,
-        request.voiceId ?? '',
-        request.speed,
-        request.pitch,
-        request.vol,
-        request.extraParams,
-        request.model,
-        apiKey,
+      const result: TtsSynthesisResult = await withRetries(
+        () => this.client.synthesizeSpeech(
+          text,
+          request.voiceId ?? '',
+          request.speed,
+          request.pitch,
+          request.vol,
+          request.extraParams,
+          request.model,
+          apiKey,
+          token
+        ),
+        isRetryableError,
         token
       );
 
@@ -181,13 +238,20 @@ export class TtsService {
         extraInfo: result.extraInfo
       };
     });
+    this.pendingTasks.add(task);
+    try {
+      return await task;
+    } finally {
+      this.pendingTasks.delete(task);
+    }
   }
 
   private async runWithConcurrencyLimit<T>(
+    limit: number,
     token: vscode.CancellationToken,
     task: () => Promise<T>
   ): Promise<T> {
-    await this.acquireConcurrencySlot(token);
+    await this.acquireConcurrencySlot(limit, token);
     try {
       return await task();
     } finally {
@@ -195,12 +259,16 @@ export class TtsService {
     }
   }
 
-  private async acquireConcurrencySlot(token: vscode.CancellationToken): Promise<void> {
-    const limit = clampConcurrency(this.configProvider().maxConcurrentRequests);
-
-    while (this.activeRequests >= limit) {
+  private async acquireConcurrencySlot(limit: number, token: vscode.CancellationToken): Promise<void> {
+    for (; ;) {
+      // 唤醒后必须重新检查取消：槽位释放与取消传播之间存在竞态
       if (token.isCancellationRequested) {
         throw new vscode.CancellationError();
+      }
+
+      if (this.activeRequests < limit) {
+        this.activeRequests++;
+        return;
       }
 
       await new Promise<void>(resolve => {
@@ -223,8 +291,6 @@ export class TtsService {
         this.waiters.push(waiter);
       });
     }
-
-    this.activeRequests++;
   }
 
   private releaseConcurrencySlot(): void {
@@ -277,23 +343,20 @@ async function cleanupAudioCache(cacheRoot: vscode.Uri, maxSizeMb: number, keepU
   }
 
   const entries = await vscode.workspace.fs.readDirectory(cacheRoot);
-  const audioEntries: AudioCacheEntry[] = [];
-  let totalBytes = 0;
+  const audioUris = entries
+    .filter(([name, type]) => type === vscode.FileType.File && /\.(?:mp3|wav|flac)$/i.test(name))
+    .map(([name]) => vscode.Uri.joinPath(cacheRoot, name));
 
-  for (const [name, type] of entries) {
-    if (type !== vscode.FileType.File || !/\.(?:mp3|wav|flac)$/i.test(name)) {
-      continue;
-    }
-
-    const uri = vscode.Uri.joinPath(cacheRoot, name);
+  // 并行 stat，避免逐个 IPC 往返
+  const audioEntries: AudioCacheEntry[] = await Promise.all(audioUris.map(async uri => {
     const stat = await vscode.workspace.fs.stat(uri);
-    audioEntries.push({
+    return {
       uri,
       size: stat.size,
       mtime: stat.mtime
-    });
-    totalBytes += stat.size;
-  }
+    };
+  }));
+  let totalBytes = audioEntries.reduce((sum, entry) => sum + entry.size, 0);
 
   // 滞后阈值：超过 120% 才清理，避免频繁扫描后立即清理
   if (totalBytes <= maxBytes * 1.2) {
