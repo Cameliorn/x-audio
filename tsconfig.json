@@ -1,29 +1,16 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
+    "module": "Node16",
     "target": "ES2022",
     "lib": [
-      "ES2022",
-      "DOM"
+      "ES2022"
     ],
-    "outDir": "out",
-    "rootDir": "src",
-    "sourceMap": true,
-    "declaration": false,
-    "strict": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "forceConsistentCasingInFileNames": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
     "types": [
-      "node"
-    ]
-  },
-  "include": [
-    "src"
-  ]
+      "node",
+      "mocha"
+    ],
+    "sourceMap": true,
+    "rootDir": "src",
+    "strict": true
+  }
 }

@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { DEFAULT_CONFIG } from '../../common/config';
-import { UserVisibleError } from '../../common/errors';
-import { createRoleAnalysisClient } from '../../roles/roleAnalysisClient';
+import { DEFAULT_CONFIG } from '../common/config';
+import { UserVisibleError } from '../common/errors';
+import { createRoleAnalysisClient } from '../roles/roleAnalysisClient';
 
 suite('RoleAnalysisClient', () => {
   test('times out OpenAI-compatible requests', async () => {

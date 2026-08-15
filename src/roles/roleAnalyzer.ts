@@ -214,7 +214,6 @@ function normalizeVoiceType(value: unknown): RoleVoiceType {
     if ((ROLE_VOICE_TYPES as readonly string[]).includes(normalized)) {
       return normalized as RoleVoiceType;
     }
-    // eslint-disable-next-line no-console
     console.warn(`角色分析返回了未知的 voice 类型 "${value}"，已回退为 narrator。`);
   }
 

@@ -1,7 +1,7 @@
 import * as assert from 'assert';
-import { DEFAULT_MINI_MAX_ROLE_VOICES } from '../../providers/minimax/config';
-import { StorySegment } from '../../roles/roleAnalyzer';
-import { assignVoices } from '../../roles/roleVoiceMapper';
+import { DEFAULT_MINI_MAX_ROLE_VOICES } from '../providers/minimax/config';
+import { StorySegment } from '../roles/roleAnalyzer';
+import { assignVoices } from '../roles/roleVoiceMapper';
 
 const FALLBACK_VOICE = 'fallback_voice';
 

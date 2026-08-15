@@ -1,10 +1,10 @@
 import * as assert from 'assert';
-import { UserVisibleError } from '../../common/errors';
+import { UserVisibleError } from '../common/errors';
 import {
   mergeConsecutiveSegments,
   parseRoleAnalysisResponse,
   splitTextIntoChunks
-} from '../../roles/roleAnalyzer';
+} from '../roles/roleAnalyzer';
 
 suite('roleAnalyzer.parseRoleAnalysisResponse', () => {
   test('parses a plain JSON array', () => {

@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import * as os from 'os';
 import * as vscode from 'vscode';
-import { findDirectoryVoiceConfig } from '../../services/voiceConfigFile';
+import { findDirectoryVoiceConfig } from '../services/voiceConfigFile';
 
 function tempUri(...segments: string[]): vscode.Uri {
   return vscode.Uri.joinPath(vscode.Uri.file(os.tmpdir()), 'xaudio-test', ...segments);

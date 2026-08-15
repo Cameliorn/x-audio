@@ -4,10 +4,11 @@
 
 ## 构建与测试
 
-- **编译**：`npm run compile` — TypeScript → CommonJS，`rootDir: src`，输出到 `out/`（入口 `./out/extension.js`）
-- **代码检查**：`npm run lint` — ESLint 检查 `src/`
-- **测试**：使用自定义轻量运行器，非 Mocha。测试位于 `src/test/`（标准布局），通过 VS Code 的 "Extension Tests" 启动配置运行，或 `npm test`（即 `node ./out/test/runTest.js`）。依赖 `@vscode/test-electron`。
-- **打包**：`npm run package` — `vsce package`，发布前自动执行 `vscode:prepublish`（lint + compile）
+- **编译**：`npm run compile` — `tsc --noEmit` 类型检查 + ESLint + esbuild 打包，输出 `dist/extension.js`（入口 `./dist/extension.js`）
+- **测试编译**：`npm run compile-tests` — TypeScript 编译测试代码到 `out/`
+- **代码检查**：`npm run lint` — ESLint 9 flat config 检查 `src/`
+- **测试**：`npm test` — `vscode-test`（@vscode/test-cli）在 VS Code Extension Host 中以 Mocha（TDD）运行 `out/test/**/*.test.js`，配置见 `.vscode-test.mjs`
+- **打包**：`npm run package` — 构建生产 bundle（esbuild `--production`）；`vsce package` 发布前会自动执行 `vscode:prepublish`
 
 ## 架构
 
@@ -49,9 +50,7 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
   └── player/            — 播放层
       ├── externalAudioPlayer.ts — 外部 Chromium 浏览器音频播放
       └── playerPage.ts      — 播放器 Webview HTML 页面生成
-  └── test/              — 测试（标准扩展布局）
-      ├── runTest.ts     — 测试启动器（@vscode/test-electron CLI 方式）
-      └── suite/         — 测试用例与自定义运行器（index.ts 注册全局 suite/test）
+  └── test/              — 测试（*.test.ts，Mocha TDD + @vscode/test-cli）
 ```
 
 ## 渠道（Provider）扩展方式
@@ -68,8 +67,8 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
 
 ## 关键约定
 
-- **严格 TypeScript**：启用了 `noUnusedLocals`、`noUnusedParameters`（未使用参数以 `_` 前缀标记）、`noImplicitReturns` 等。详见 [tsconfig.json](tsconfig.json)。
-- **模块系统**：CommonJS（`module: "CommonJS"`）。使用 `import`/`export` 语法编写，输出为 CJS。
+- **严格 TypeScript**：`strict: true`。详见 [tsconfig.json](tsconfig.json)。
+- **模块系统**：`module: "Node16"`。使用 `import`/`export` 语法编写，esbuild 输出为 CJS。
 - **VS Code 目标版本**：`^1.100.0`。使用了 `vscode.lm.registerTool`（Language Model Tool API）、`vscode.SecretStorage`、`vscode.WebviewPanel`。
 - **用户界面文本**使用简体中文。
 - **扩展实例间不共享状态** — 每次 activate 创建全新的服务实例。
@@ -77,7 +76,7 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
 
 ## 注意事项
 
-- 测试文件手动将 `suite`/`test` 注册为全局变量（无测试框架）。不要添加 Mocha/Jest 依赖。
-- `.vscodeignore` 排除了 `src/`（含测试）与 `scripts/` — 运行时代码位于 `out/`。
+- 测试使用 Mocha TDD（`suite`/`test`），由 `@vscode/test-cli` 在扩展宿主内执行。
+- `.vscodeignore` 排除了 `src/`（含测试）与构建文件 — 运行时代码位于 `dist/`。
 - 扩展使用 `extensionKind: "ui"` — 只能在本地扩展宿主中运行。
 - `externalAudioPlayer.ts` 会启动外部 Chromium 浏览器并附带 `--autoplay-policy=no-user-gesture-required` 来播放音频。

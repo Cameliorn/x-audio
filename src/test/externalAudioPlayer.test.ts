@@ -2,8 +2,8 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { fileExists } from '../../common/fileUtils';
-import { cleanupBrowserProfileDirs } from '../../player/externalAudioPlayer';
+import { fileExists } from '../common/fileUtils';
+import { cleanupBrowserProfileDirs } from '../player/externalAudioPlayer';
 
 suite('externalAudioPlayer', () => {
   test('cleans up old browser profiles but keeps the current one', async () => {

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
-import { normalizeApiKey } from '../../common/apiKey';
-import { inspectMiniMaxApiKey } from '../../providers/minimax/apiKey';
+import { normalizeApiKey } from '../common/apiKey';
+import { inspectMiniMaxApiKey } from '../providers/minimax/apiKey';
 
 suite('apiKey', () => {
   test('does not require OpenAI-style sk prefixes', () => {

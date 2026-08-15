@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { DOUBAO_PROMPT_MAX_LENGTH, validateScenePrompt } from '../../services/doubaoScene';
+import { DOUBAO_PROMPT_MAX_LENGTH, validateScenePrompt } from '../services/doubaoScene';
 
 suite('DoubaoScene', () => {
   test('rejects empty prompts', () => {

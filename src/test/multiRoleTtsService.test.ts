@@ -2,11 +2,11 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { DEFAULT_CONFIG, TtsConfig } from '../../common/config';
-import { TtsSynthesizer } from '../../common/types';
-import { MultiRoleTtsService, RoleSpeechSegment } from '../../services/multiRoleTtsService';
-import { ApiKeyProvider } from '../../services/secretManager';
-import { TtsService } from '../../services/ttsService';
+import { DEFAULT_CONFIG, TtsConfig } from '../common/config';
+import { TtsSynthesizer } from '../common/types';
+import { MultiRoleTtsService, RoleSpeechSegment } from '../services/multiRoleTtsService';
+import { ApiKeyProvider } from '../services/secretManager';
+import { TtsService } from '../services/ttsService';
 
 suite('MultiRoleTtsService', () => {
   test('synthesizes segments concurrently up to the configured limit and preserves order', async () => {

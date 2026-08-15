@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { MissingApiKeyError } from '../../common/errors';
-import { minimaxProvider } from '../../providers/minimax';
-import { SecretManager } from '../../services/secretManager';
+import { MissingApiKeyError } from '../common/errors';
+import { minimaxProvider } from '../providers/minimax';
+import { SecretManager } from '../services/secretManager';
 
 suite('SecretManager', () => {
   test('throws a user-facing error when the API key is missing', async () => {

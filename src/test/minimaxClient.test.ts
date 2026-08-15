@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { MiniMaxApiError, UserVisibleError } from '../../common/errors';
-import { MiniMaxClient, buildMiniMaxTtsPayload, decodeHexAudio } from '../../providers/minimax/client';
-import { DEFAULT_MINI_MAX_CONFIG, normalizeApiHost } from '../../providers/minimax/config';
+import { MiniMaxApiError, UserVisibleError } from '../common/errors';
+import { MiniMaxClient, buildMiniMaxTtsPayload, decodeHexAudio } from '../providers/minimax/client';
+import { DEFAULT_MINI_MAX_CONFIG, normalizeApiHost } from '../providers/minimax/config';
 
 suite('MiniMaxClient', () => {
   test('builds a T2A request payload with overrides', () => {

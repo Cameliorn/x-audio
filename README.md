@@ -138,3 +138,25 @@
 - 普通朗读需 MiniMax 语音订阅或 Token Plan 密钥
 - 豆包音频场景需[火山引擎语音 API Key](https://console.volcengine.com/speech/new/setting/apikeys)（独立存储）
 - 分角色朗读需 DeepSeek API 密钥
+
+
+## Known Issues
+
+- 外部播放器依赖本机 Chromium 内核浏览器；未检测到支持的浏览器时会提示手动播放。
+- 豆包音频场景为整段 Prompt 端到端生成，不适合超长文本逐句朗读。
+
+## Release Notes
+
+### 1.0.4
+
+- 按标准 VS Code 扩展布局统一构建、测试与代码检查流程（esbuild + @vscode/test-cli）。
+
+---
+
+## Following extension guidelines
+
+Ensure that you have read through the extensions guidelines and follow the best practices for creating your extension.
+
+- [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
+
+**Enjoy!**

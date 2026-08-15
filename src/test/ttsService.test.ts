@@ -2,12 +2,12 @@ import * as assert from 'assert';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { DEFAULT_CONFIG, TtsConfig } from '../../common/config';
-import { UserVisibleError } from '../../common/errors';
-import { fileExists } from '../../common/fileUtils';
-import { TtsSynthesizer } from '../../common/types';
-import { ApiKeyProvider } from '../../services/secretManager';
-import { TtsAudioFile, TtsService } from '../../services/ttsService';
+import { DEFAULT_CONFIG, TtsConfig } from '../common/config';
+import { UserVisibleError } from '../common/errors';
+import { fileExists } from '../common/fileUtils';
+import { TtsSynthesizer } from '../common/types';
+import { ApiKeyProvider } from '../services/secretManager';
+import { TtsAudioFile, TtsService } from '../services/ttsService';
 
 suite('TtsService', () => {
   test('uses cached audio for identical text and settings', async () => {

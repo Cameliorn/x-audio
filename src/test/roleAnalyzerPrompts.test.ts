@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildRoleAnalysisMessages } from '../../roles/roleAnalyzerPrompts';
+import { buildRoleAnalysisMessages } from '../roles/roleAnalyzerPrompts';
 
 suite('roleAnalyzerPrompts.buildRoleAnalysisMessages', () => {
   test('uses built-in system + user messages when no custom prompt', () => {

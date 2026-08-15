@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { DoubaoApiError, UserVisibleError } from '../../common/errors';
-import { DoubaoClient, buildDoubaoPayload, parseDoubaoResponse } from '../../providers/doubao/client';
-import { DEFAULT_DOUBAO_CONFIG, normalizeApiHost } from '../../providers/doubao/config';
+import { DoubaoApiError, UserVisibleError } from '../common/errors';
+import { DoubaoClient, buildDoubaoPayload, parseDoubaoResponse } from '../providers/doubao/client';
+import { DEFAULT_DOUBAO_CONFIG, normalizeApiHost } from '../providers/doubao/config';
 
 suite('DoubaoClient', () => {
   test('builds an audio generation payload with speaker reference', () => {
