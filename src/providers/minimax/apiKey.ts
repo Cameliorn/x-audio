@@ -1,10 +1,10 @@
-import { normalizeApiKey } from '../../apiKey';
+import { normalizeApiKey } from '../../common/apiKey';
 import { ApiKeyInfo } from '../types';
 
 interface MiniMaxJwtPayload {
-    readonly iss?: string;
-    readonly TokenType?: number;
-    readonly GroupID?: string;
+  readonly iss?: string;
+  readonly TokenType?: number;
+  readonly GroupID?: string;
 }
 
 /**

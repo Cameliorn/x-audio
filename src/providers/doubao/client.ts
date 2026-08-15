@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { DoubaoApiError } from '../../errors';
-import { t } from '../../i18n';
-import { TtsSynthesisResult, TtsSynthesizer } from '../../types';
-import { clampNumber, createAbortController, sortedStringify } from '../../utils';
+import { DoubaoApiError } from '../../common/errors';
+import { t } from '../../common/i18n';
+import { TtsSynthesisResult, TtsSynthesizer } from '../../common/types';
+import { clampNumber, createAbortController, sortedStringify } from '../../common/utils';
 import { FetchLike, translateFetchError } from '../shared';
 import { DoubaoTtsConfig, normalizeApiHost } from './config';
 

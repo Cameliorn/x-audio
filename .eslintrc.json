@@ -35,7 +35,7 @@
   },
   "overrides": [
     {
-      "files": ["test/**/*.ts"],
+      "files": ["src/test/**/*.ts"],
       "rules": {
         "no-console": "off"
       }

@@ -1,4 +1,4 @@
-import { t } from '../../i18n';
+import { t } from '../../common/i18n';
 import { TtsProvider } from '../types';
 import { inspectMiniMaxApiKey } from './apiKey';
 import { MiniMaxClient } from './client';

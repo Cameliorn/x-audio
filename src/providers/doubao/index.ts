@@ -1,5 +1,5 @@
-import { t } from '../../i18n';
-import { RoleVoiceType } from '../../roleAnalyzerPrompts';
+import { t } from '../../common/i18n';
+import { RoleVoiceType } from '../../roles/roleAnalyzerPrompts';
 import { TtsProvider } from '../types';
 import { inspectDoubaoApiKey } from './apiKey';
 import { DoubaoClient } from './client';

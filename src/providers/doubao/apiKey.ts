@@ -1,4 +1,4 @@
-import { normalizeApiKey } from '../../apiKey';
+import { normalizeApiKey } from '../../common/apiKey';
 import { ApiKeyInfo } from '../types';
 
 /**

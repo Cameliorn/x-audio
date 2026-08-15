@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { UserVisibleError } from '../errors';
-import { t } from '../i18n';
-import { AudioFormat } from '../types';
-import { isRecord } from '../utils';
+import { UserVisibleError } from '../common/errors';
+import { t } from '../common/i18n';
+import { AudioFormat } from '../common/types';
+import { isRecord } from '../common/utils';
 
 export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 

@@ -1,5 +1,5 @@
-import { RoleVoiceType } from '../roleAnalyzerPrompts';
-import { TtsSynthesizer } from '../types';
+import { TtsSynthesizer } from '../common/types';
+import { RoleVoiceType } from '../roles/roleAnalyzerPrompts';
 
 /** 渠道共用的配置字段（分角色朗读、缓存等通用逻辑依赖） */
 export interface TtsProviderConfig {

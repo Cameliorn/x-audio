@@ -1,9 +1,9 @@
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
-import { MiniMaxApiError, UserVisibleError } from '../../errors';
-import { t } from '../../i18n';
-import { TtsSynthesisResult, TtsSynthesizer } from '../../types';
-import { createAbortController, sortedStringify } from '../../utils';
+import { MiniMaxApiError, UserVisibleError } from '../../common/errors';
+import { t } from '../../common/i18n';
+import { TtsSynthesisResult, TtsSynthesizer } from '../../common/types';
+import { createAbortController, sortedStringify } from '../../common/utils';
 import { FetchLike, translateFetchError } from '../shared';
 import { MiniMaxTtsConfig, normalizeApiHost } from './config';
 

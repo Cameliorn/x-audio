@@ -29,7 +29,7 @@
     "copilot",
     "agent"
   ],
-  "main": "./out/src/extension.js",
+  "main": "./out/extension.js",
   "activationEvents": [
     "onLanguageModelTool:xaudio_speak",
     "onLanguageModelTool:xaudio_scene"
@@ -572,7 +572,7 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src test --ext ts",
+    "lint": "eslint src --ext ts",
     "pretest": "npm run lint",
     "test": "npm run compile && node ./out/test/runTest.js",
     "package": "vsce package --allow-missing-repository",

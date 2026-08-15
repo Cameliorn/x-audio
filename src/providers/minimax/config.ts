@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { ROLE_VOICE_TYPES, RoleVoiceType } from '../../roleAnalyzerPrompts';
-import { AudioFormat } from '../../types';
+import { AudioFormat } from '../../common/types';
+import { ROLE_VOICE_TYPES, RoleVoiceType } from '../../roles/roleAnalyzerPrompts';
 import {
   normalizeApiHost as normalizeSharedApiHost,
   readAudioFormat,
