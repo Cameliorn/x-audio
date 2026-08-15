@@ -5,8 +5,8 @@ import * as vscode from 'vscode';
 
 suite('manifest', () => {
   test('every %key% reference in package.json exists in both nls files', () => {
-    const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'audioplugin-tts');
-    assert.ok(extension, 'AudioPlugin extension should be available in extension tests.');
+    const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'x-audio');
+    assert.ok(extension, 'x-audio extension should be available in extension tests.');
     if (!extension) {
       return;
     }
@@ -58,10 +58,10 @@ suite('manifest', () => {
 });
 
 function findExtension(): vscode.Extension<unknown> {
-  const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'audioplugin-tts');
-  assert.ok(extension, 'AudioPlugin extension should be available in extension tests.');
+  const extension = vscode.extensions.all.find(candidate => candidate.packageJSON.name === 'x-audio');
+  assert.ok(extension, 'x-audio extension should be available in extension tests.');
   if (!extension) {
-    throw new Error('AudioPlugin extension not found.');
+    throw new Error('x-audio extension not found.');
   }
   return extension;
 }

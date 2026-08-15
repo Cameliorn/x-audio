@@ -11,7 +11,7 @@ export interface RoleAnalysisConfig {
   readonly requestTimeoutMs: number;
 }
 
-/** 通用配置（audioplugin.*），与具体 TTS 渠道无关 */
+/** 通用配置（xaudio.*），与具体 TTS 渠道无关 */
 export interface TtsConfig {
   readonly cacheEnabled: boolean;
   readonly cacheMaxSizeMb: number;
@@ -41,7 +41,7 @@ export const DEFAULT_CONFIG: TtsConfig = {
 };
 
 export function getTtsConfig(): TtsConfig {
-  const settings = vscode.workspace.getConfiguration('audioplugin');
+  const settings = vscode.workspace.getConfiguration('xaudio');
 
   return {
     cacheEnabled: settings.get<boolean>('cacheEnabled', DEFAULT_CONFIG.cacheEnabled),

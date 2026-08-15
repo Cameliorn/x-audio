@@ -1,4 +1,4 @@
-# AudioPlugin 朗读助手
+# x-audio 朗读助手
 
 在 VS Code 中将文本合成为语音并朗读。支持普通朗读、分角色朗读，并可作为 Copilot Agent 工具使用。
 
@@ -9,37 +9,37 @@
 - **朗读选中文本** — 选中编辑器内容，一键合成语音
 - **分角色朗读** — 自动分析小说角色与对白，为每个角色分配不同音色
 - **播放控制** — 支持暂停/恢复、停止播放
-- **Copilot 集成** — 作为 Language Model Tool（`audioplugin_speak`）供 Copilot Agent 调用
+- **Copilot 集成** — 作为 Language Model Tool（`xaudio_speak`）供 Copilot Agent 调用
 - **音频缓存** — 相同文本自动复用已合成的音频
 
 ## 使用方式
 
 ### 普通朗读
 
-1. 运行 **AudioPlugin 朗读助手：设置密钥**，粘贴当前渠道的 API 密钥
+1. 运行 **x-audio 朗读助手：设置密钥**，粘贴当前渠道的 API 密钥
 2. 在编辑器中选中文本，右键选择 **朗读选中文本**
 
 ### 分角色朗读
 
-1. 运行 **AudioPlugin 朗读助手：配置角色分析**，设置 DeepSeek API 密钥
+1. 运行 **x-audio 朗读助手：配置角色分析**，设置 DeepSeek API 密钥
 2. 打开小说文本，运行 **分角色朗读文档**
 3. 确认角色与音色分配后开始合成
 
 ## TTS 渠道（Provider）
 
-通过设置 `audioplugin.provider` 选择语音合成渠道（默认 `minimax`）。每个渠道的专属设置在 `audioplugin.<渠道>.*` 下：
+通过设置 `xaudio.provider` 选择语音合成渠道（默认 `minimax`）。每个渠道的专属设置在 `xaudio.<渠道>.*` 下：
 
-- **`minimax`（默认）** — MiniMax 语音合成，设置项见下表（`audioplugin.minimax.*`）
+- **`minimax`（默认）** — MiniMax 语音合成，设置项见下表（`xaudio.minimax.*`）
 
-普通朗读（`audioplugin.speakSelection`）、分角色朗读与 `audioplugin_speak` 智能体工具仅使用当前渠道（MiniMax）。豆包不参与这些流程。
+普通朗读（`xaudio.speakSelection`）、分角色朗读与 `xaudio_speak` 智能体工具仅使用当前渠道（MiniMax）。豆包不参与这些流程。
 
 ## 豆包音频场景（与普通朗读完全隔离）
 
 豆包音频生成模型（Seed-Audio 1.0）通过**独立的命令与智能体工具**使用：选中文本被视为**一条完整 Prompt**，单次请求端到端生成综合语音场景（多角色对白、语气情绪、音效、背景音乐），不经过普通朗读的分句/缓存流程。
 
-- **右键命令** `audioplugin.speakScenePrompt`（用豆包生成音频场景）— 选中文本作为 Prompt，生成并播放
-- **智能体工具** `audioplugin_scene` — Copilot 智能体可调用，输入 `prompt` 字段生成并播放音频场景
-- 密钥：运行 **「AudioPlugin 朗读助手：设置密钥」** 粘贴[火山引擎语音 API Key](https://console.volcengine.com/speech/new/setting/apikeys)（与普通朗读的 MiniMax 密钥相互独立存储）
+- **右键命令** `xaudio.speakScenePrompt`（用豆包生成音频场景）— 选中文本作为 Prompt，生成并播放
+- **智能体工具** `xaudio_scene` — Copilot 智能体可调用，输入 `prompt` 字段生成并播放音频场景
+- 密钥：运行 **「x-audio 朗读助手：设置密钥」** 粘贴[火山引擎语音 API Key](https://console.volcengine.com/speech/new/setting/apikeys)（与普通朗读的 MiniMax 密钥相互独立存储）
 - Prompt 上限 3000 字符，单次输出最长 120 秒
 
 示例 Prompt：
@@ -76,17 +76,17 @@
 
 | 命令 | 说明 |
 |---|---|
-| `audioplugin.speakSelection` | 朗读选中文本 |
-| `audioplugin.speakDocumentWithRoles` | 分角色朗读文档 |
-| `audioplugin.speakScenePrompt` | 用豆包生成音频场景（选中文本为完整 Prompt） |
-| `audioplugin.setApiKey` | 设置当前渠道 API 密钥 |
-| `audioplugin.configureRoleAnalysis` | 配置角色分析（DeepSeek） |
-| `audioplugin.pause` | 暂停/恢复播放 |
-| `audioplugin.stop` | 停止播放 |
+| `xaudio.speakSelection` | 朗读选中文本 |
+| `xaudio.speakDocumentWithRoles` | 分角色朗读文档 |
+| `xaudio.speakScenePrompt` | 用豆包生成音频场景（选中文本为完整 Prompt） |
+| `xaudio.setApiKey` | 设置当前渠道 API 密钥 |
+| `xaudio.configureRoleAnalysis` | 配置角色分析（DeepSeek） |
+| `xaudio.pause` | 暂停/恢复播放 |
+| `xaudio.stop` | 停止播放 |
 
 ## 设置
 
-通过 VS Code 设置面板调整（`audioplugin.*`）。配置项按适用范围分类标注：
+通过 VS Code 设置面板调整（`xaudio.*`）。配置项按适用范围分类标注：
 
 - **[通用]** — 所有渠道、所有朗读模式
 - **[MiniMax]** — 仅 MiniMax 渠道
@@ -94,7 +94,7 @@
 - **[分角色]** — 仅分角色朗读
 - **[普通朗读]** — 仅普通朗读（朗读选中文本）
 
-### 通用设置（`audioplugin.*`）
+### 通用设置（`xaudio.*`）
 
 | 设置 | 说明 | 默认值 |
 |---|---|---|
@@ -106,7 +106,7 @@
 | `browserPath` | [通用] 外部播放器浏览器路径 | — |
 | `roleAnalysis.*` | [分角色] 角色分析配置（DeepSeek/Copilot） | — |
 
-### MiniMax 渠道设置（`audioplugin.minimax.*`）
+### MiniMax 渠道设置（`xaudio.minimax.*`）
 
 | 设置 | 说明 | 默认值 |
 |---|---|---|
@@ -119,7 +119,7 @@
 | `roleVoices` | [MiniMax][分角色] 角色类型默认音色 | — |
 | `format` | [MiniMax] 输出音频格式 | `mp3` |
 
-### 豆包音频场景设置（`audioplugin.doubao.*`）
+### 豆包音频场景设置（`xaudio.doubao.*`）
 
 | 设置 | 说明 | 默认值 |
 |---|---|---|

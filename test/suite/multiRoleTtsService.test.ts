@@ -138,7 +138,7 @@ interface CreateServiceOptions {
 function createService(options: CreateServiceOptions): MultiRoleTtsService {
   const configProvider = (): TtsConfig => options.config ?? DEFAULT_CONFIG;
   const ttsService = new TtsService(
-    vscode.Uri.file(path.join(os.tmpdir(), `audioplugin-multirole-test-${Date.now()}-${Math.random()}`)),
+    vscode.Uri.file(path.join(os.tmpdir(), `xaudio-multirole-test-${Date.now()}-${Math.random()}`)),
     new StaticApiKeyProvider(),
     options.client,
     configProvider

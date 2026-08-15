@@ -19,7 +19,7 @@ const DOUBAO_EMPTY_ROLE_VOICES: Readonly<Record<RoleVoiceType, string>> = {
 export const doubaoProvider: TtsProvider = {
   id: 'doubao',
   displayName: '豆包',
-  apiKeySecret: 'audioplugin.doubao.apiKey',
+  apiKeySecret: 'xaudio.doubao.apiKey',
   // 仅用于场景命令的密钥管理；不参与普通朗读渠道选择（未注册到 registry）
   readConfig: () => ({ voiceId: '', roleVoices: DOUBAO_EMPTY_ROLE_VOICES }),
   createClient: () => new DoubaoClient(getDoubaoTtsConfig),

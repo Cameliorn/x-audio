@@ -4,7 +4,7 @@ import { t } from './i18n';
 
 /** 角色分析配置向导：选择提供商（Copilot / OpenAI 兼容）并写入设置 */
 export async function configureRoleAnalysis(secrets: vscode.SecretStorage): Promise<void> {
-  const settings = vscode.workspace.getConfiguration('audioplugin');
+  const settings = vscode.workspace.getConfiguration('xaudio');
   const currentProvider = settings.get<string>('roleAnalysis.provider', 'openai');
 
   const providerPick = await vscode.window.showQuickPick(
@@ -118,7 +118,7 @@ async function configureOpenaiProvider(
   await settings.update('roleAnalysis.openaiModel', model.trim(), vscode.ConfigurationTarget.Global);
 
   if (apiKey.trim().length > 0) {
-    await secrets.store('audioplugin.roleAnalysisApiKey', apiKey.trim());
+    await secrets.store('xaudio.roleAnalysisApiKey', apiKey.trim());
   }
 
   vscode.window.showInformationMessage(t('extension.roleAnalysisConfigured', model, endpoint.trim()));

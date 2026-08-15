@@ -1,7 +1,7 @@
 {
-  "name": "audioplugin-tts",
-  "displayName": "AudioPlugin TTS 朗读助手",
-  "description": "%audioplugin.description%",
+  "name": "x-audio",
+  "displayName": "x-audio 朗读助手",
+  "description": "%xaudio.description%",
   "version": "1.0.4",
   "publisher": "Cameliorn",
   "icon": "icon.png",
@@ -9,12 +9,12 @@
   "author": "Cameliorn",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Cameliorn/projectaudioplugin"
+    "url": "https://github.com/Cameliorn/x-audio"
   },
   "bugs": {
-    "url": "https://github.com/Cameliorn/projectaudioplugin/issues"
+    "url": "https://github.com/Cameliorn/x-audio/issues"
   },
-  "homepage": "https://github.com/Cameliorn/projectaudioplugin#readme",
+  "homepage": "https://github.com/Cameliorn/x-audio#readme",
   "engines": {
     "vscode": "^1.100.0"
   },
@@ -31,8 +31,8 @@
   ],
   "main": "./out/src/extension.js",
   "activationEvents": [
-    "onLanguageModelTool:audioplugin_speak",
-    "onLanguageModelTool:audioplugin_scene"
+    "onLanguageModelTool:xaudio_speak",
+    "onLanguageModelTool:xaudio_scene"
   ],
   "extensionKind": [
     "ui"
@@ -46,84 +46,84 @@
   "contributes": {
     "commands": [
       {
-        "command": "audioplugin.speakSelection",
-        "title": "%audioplugin.commands.speakSelection.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.speakSelection",
+        "title": "%xaudio.commands.speakSelection.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(unmute)"
       },
       {
-        "command": "audioplugin.speakDocumentWithRoles",
-        "title": "%audioplugin.commands.speakDocumentWithRoles.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.speakDocumentWithRoles",
+        "title": "%xaudio.commands.speakDocumentWithRoles.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(book)"
       },
       {
-        "command": "audioplugin.speakScenePrompt",
-        "title": "%audioplugin.commands.speakScenePrompt.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.speakScenePrompt",
+        "title": "%xaudio.commands.speakScenePrompt.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(megaphone)"
       },
       {
-        "command": "audioplugin.setApiKey",
-        "title": "%audioplugin.commands.setApiKey.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.setApiKey",
+        "title": "%xaudio.commands.setApiKey.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(key)"
       },
       {
-        "command": "audioplugin.pause",
-        "title": "%audioplugin.commands.pause.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.pause",
+        "title": "%xaudio.commands.pause.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(debug-pause)"
       },
       {
-        "command": "audioplugin.stop",
-        "title": "%audioplugin.commands.stop.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.stop",
+        "title": "%xaudio.commands.stop.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(debug-stop)"
       },
       {
-        "command": "audioplugin.configureRoleAnalysis",
-        "title": "%audioplugin.commands.configureRoleAnalysis.title%",
-        "category": "%audioplugin.commands.category%",
+        "command": "xaudio.configureRoleAnalysis",
+        "title": "%xaudio.commands.configureRoleAnalysis.title%",
+        "category": "%xaudio.commands.category%",
         "icon": "$(settings-gear)"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "audioplugin.speakSelection",
+          "command": "xaudio.speakSelection",
           "when": "false"
         },
         {
-          "command": "audioplugin.pause",
-          "when": "audioplugin.playing"
+          "command": "xaudio.pause",
+          "when": "xaudio.playing"
         },
         {
-          "command": "audioplugin.stop",
-          "when": "audioplugin.playing"
+          "command": "xaudio.stop",
+          "when": "xaudio.playing"
         }
       ],
       "editor/context": [
         {
-          "command": "audioplugin.speakSelection",
-          "group": "1_audioplugin@1",
+          "command": "xaudio.speakSelection",
+          "group": "1_xaudio@1",
           "when": "editorHasSelection"
         },
         {
-          "command": "audioplugin.speakDocumentWithRoles",
-          "group": "1_audioplugin@2"
+          "command": "xaudio.speakDocumentWithRoles",
+          "group": "1_xaudio@2"
         },
         {
-          "command": "audioplugin.speakScenePrompt",
-          "group": "1_audioplugin@3",
+          "command": "xaudio.speakScenePrompt",
+          "group": "1_xaudio@3",
           "when": "editorHasSelection"
         }
       ]
     },
     "configuration": {
-      "title": "%audioplugin.configuration.title%",
+      "title": "%xaudio.configuration.title%",
       "properties": {
-        "audioplugin.provider": {
+        "xaudio.provider": {
           "order": 1,
           "type": "string",
           "default": "minimax",
@@ -131,28 +131,28 @@
             "minimax"
           ],
           "enumDescriptions": [
-            "%audioplugin.configuration.properties.provider.enum.minimax%"
+            "%xaudio.configuration.properties.provider.enum.minimax%"
           ],
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.provider.description%"
+          "description": "%xaudio.configuration.properties.provider.description%"
         },
-        "audioplugin.doubao.apiHost": {
+        "xaudio.doubao.apiHost": {
           "order": 10,
           "type": "string",
           "default": "https://openspeech.bytedance.com",
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.doubao.apiHost.description%"
+          "description": "%xaudio.configuration.properties.doubao.apiHost.description%"
         },
-        "audioplugin.doubao.model": {
+        "xaudio.doubao.model": {
           "order": 11,
           "type": "string",
           "enum": [
             "seed-audio-1.0"
           ],
           "default": "seed-audio-1.0",
-          "description": "%audioplugin.configuration.properties.doubao.model.description%"
+          "description": "%xaudio.configuration.properties.doubao.model.description%"
         },
-        "audioplugin.doubao.format": {
+        "xaudio.doubao.format": {
           "order": 12,
           "type": "string",
           "enum": [
@@ -160,59 +160,59 @@
             "wav"
           ],
           "default": "mp3",
-          "description": "%audioplugin.configuration.properties.doubao.format.description%"
+          "description": "%xaudio.configuration.properties.doubao.format.description%"
         },
-        "audioplugin.doubao.sampleRate": {
+        "xaudio.doubao.sampleRate": {
           "order": 13,
           "type": "number",
           "default": 24000,
           "minimum": 8000,
-          "description": "%audioplugin.configuration.properties.doubao.sampleRate.description%"
+          "description": "%xaudio.configuration.properties.doubao.sampleRate.description%"
         },
-        "audioplugin.doubao.speechRate": {
+        "xaudio.doubao.speechRate": {
           "order": 14,
           "type": "number",
           "default": 0,
           "minimum": -50,
           "maximum": 100,
-          "description": "%audioplugin.configuration.properties.doubao.speechRate.description%"
+          "description": "%xaudio.configuration.properties.doubao.speechRate.description%"
         },
-        "audioplugin.doubao.loudnessRate": {
+        "xaudio.doubao.loudnessRate": {
           "order": 15,
           "type": "number",
           "default": 0,
           "minimum": -100,
           "maximum": 100,
-          "description": "%audioplugin.configuration.properties.doubao.loudnessRate.description%"
+          "description": "%xaudio.configuration.properties.doubao.loudnessRate.description%"
         },
-        "audioplugin.doubao.pitchRate": {
+        "xaudio.doubao.pitchRate": {
           "order": 16,
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "%audioplugin.configuration.properties.doubao.pitchRate.description%"
+          "description": "%xaudio.configuration.properties.doubao.pitchRate.description%"
         },
-        "audioplugin.doubao.subtitleEnable": {
+        "xaudio.doubao.subtitleEnable": {
           "order": 17,
           "type": "boolean",
           "default": false,
-          "description": "%audioplugin.configuration.properties.doubao.subtitleEnable.description%"
+          "description": "%xaudio.configuration.properties.doubao.subtitleEnable.description%"
         },
-        "audioplugin.doubao.extraRequestJson": {
+        "xaudio.doubao.extraRequestJson": {
           "order": 18,
           "type": "object",
           "default": {},
-          "description": "%audioplugin.configuration.properties.doubao.extraRequestJson.description%"
+          "description": "%xaudio.configuration.properties.doubao.extraRequestJson.description%"
         },
-        "audioplugin.minimax.apiHost": {
+        "xaudio.minimax.apiHost": {
           "order": 10,
           "type": "string",
           "default": "https://api.minimax.io",
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.minimax.apiHost.description%"
+          "description": "%xaudio.configuration.properties.minimax.apiHost.description%"
         },
-        "audioplugin.minimax.model": {
+        "xaudio.minimax.model": {
           "order": 11,
           "type": "string",
           "enum": [
@@ -226,9 +226,9 @@
             "speech-01-turbo"
           ],
           "default": "speech-2.8-turbo",
-          "description": "%audioplugin.configuration.properties.minimax.model.description%"
+          "description": "%xaudio.configuration.properties.minimax.model.description%"
         },
-        "audioplugin.minimax.format": {
+        "xaudio.minimax.format": {
           "order": 12,
           "type": "string",
           "enum": [
@@ -237,23 +237,23 @@
             "flac"
           ],
           "default": "mp3",
-          "description": "%audioplugin.configuration.properties.minimax.format.description%"
+          "description": "%xaudio.configuration.properties.minimax.format.description%"
         },
-        "audioplugin.minimax.sampleRate": {
+        "xaudio.minimax.sampleRate": {
           "order": 13,
           "type": "number",
           "default": 32000,
           "minimum": 8000,
-          "description": "%audioplugin.configuration.properties.minimax.sampleRate.description%"
+          "description": "%xaudio.configuration.properties.minimax.sampleRate.description%"
         },
-        "audioplugin.minimax.bitrate": {
+        "xaudio.minimax.bitrate": {
           "order": 14,
           "type": "number",
           "default": 128000,
           "minimum": 16000,
-          "description": "%audioplugin.configuration.properties.minimax.bitrate.description%"
+          "description": "%xaudio.configuration.properties.minimax.bitrate.description%"
         },
-        "audioplugin.minimax.channel": {
+        "xaudio.minimax.channel": {
           "order": 15,
           "type": "number",
           "enum": [
@@ -261,9 +261,9 @@
             2
           ],
           "default": 1,
-          "description": "%audioplugin.configuration.properties.minimax.channel.description%"
+          "description": "%xaudio.configuration.properties.minimax.channel.description%"
         },
-        "audioplugin.minimax.languageBoost": {
+        "xaudio.minimax.languageBoost": {
           "order": 16,
           "type": "string",
           "enum": [
@@ -310,92 +310,92 @@
             "Afrikaans"
           ],
           "default": "auto",
-          "description": "%audioplugin.configuration.properties.minimax.languageBoost.description%"
+          "description": "%xaudio.configuration.properties.minimax.languageBoost.description%"
         },
-        "audioplugin.minimax.pronunciationTone": {
+        "xaudio.minimax.pronunciationTone": {
           "order": 17,
           "type": "array",
           "default": [],
           "items": {
             "type": "string"
           },
-          "description": "%audioplugin.configuration.properties.minimax.pronunciationTone.description%"
+          "description": "%xaudio.configuration.properties.minimax.pronunciationTone.description%"
         },
-        "audioplugin.minimax.extraRequestJson": {
+        "xaudio.minimax.extraRequestJson": {
           "order": 18,
           "type": "object",
           "default": {},
-          "description": "%audioplugin.configuration.properties.minimax.extraRequestJson.description%"
+          "description": "%xaudio.configuration.properties.minimax.extraRequestJson.description%"
         },
-        "audioplugin.minimax.voiceId": {
+        "xaudio.minimax.voiceId": {
           "order": 20,
           "type": "string",
           "default": "English_expressive_narrator",
-          "description": "%audioplugin.configuration.properties.minimax.voiceId.description%"
+          "description": "%xaudio.configuration.properties.minimax.voiceId.description%"
         },
-        "audioplugin.minimax.speed": {
+        "xaudio.minimax.speed": {
           "order": 21,
           "type": "number",
           "default": 1,
           "minimum": 0.5,
           "maximum": 2,
-          "description": "%audioplugin.configuration.properties.minimax.speed.description%"
+          "description": "%xaudio.configuration.properties.minimax.speed.description%"
         },
-        "audioplugin.minimax.vol": {
+        "xaudio.minimax.vol": {
           "order": 22,
           "type": "number",
           "default": 1,
           "minimum": 0,
           "maximum": 10,
-          "description": "%audioplugin.configuration.properties.minimax.vol.description%"
+          "description": "%xaudio.configuration.properties.minimax.vol.description%"
         },
-        "audioplugin.minimax.pitch": {
+        "xaudio.minimax.pitch": {
           "order": 23,
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "%audioplugin.configuration.properties.minimax.pitch.description%"
+          "description": "%xaudio.configuration.properties.minimax.pitch.description%"
         },
-        "audioplugin.minimax.voiceModifyEnabled": {
+        "xaudio.minimax.voiceModifyEnabled": {
           "order": 30,
           "type": "boolean",
           "default": false,
-          "description": "%audioplugin.configuration.properties.minimax.voiceModifyEnabled.description%"
+          "description": "%xaudio.configuration.properties.minimax.voiceModifyEnabled.description%"
         },
-        "audioplugin.minimax.voiceModifyPitch": {
+        "xaudio.minimax.voiceModifyPitch": {
           "order": 31,
           "type": "number",
           "default": 0,
           "minimum": -12,
           "maximum": 12,
-          "description": "%audioplugin.configuration.properties.minimax.voiceModifyPitch.description%"
+          "description": "%xaudio.configuration.properties.minimax.voiceModifyPitch.description%"
         },
-        "audioplugin.minimax.voiceModifyIntensity": {
+        "xaudio.minimax.voiceModifyIntensity": {
           "order": 32,
           "type": "number",
           "default": 0,
-          "description": "%audioplugin.configuration.properties.minimax.voiceModifyIntensity.description%"
+          "description": "%xaudio.configuration.properties.minimax.voiceModifyIntensity.description%"
         },
-        "audioplugin.minimax.voiceModifyTimbre": {
+        "xaudio.minimax.voiceModifyTimbre": {
           "order": 33,
           "type": "number",
           "default": 0,
-          "description": "%audioplugin.configuration.properties.minimax.voiceModifyTimbre.description%"
+          "description": "%xaudio.configuration.properties.minimax.voiceModifyTimbre.description%"
         },
-        "audioplugin.minimax.voiceModifySoundEffects": {
+        "xaudio.minimax.voiceModifySoundEffects": {
           "order": 34,
           "type": "string",
           "default": "",
-          "description": "%audioplugin.configuration.properties.minimax.voiceModifySoundEffects.description%"
+          "description": "%xaudio.configuration.properties.minimax.voiceModifySoundEffects.description%"
         },
-        "audioplugin.minimax.subtitleEnable": {
+        "xaudio.minimax.subtitleEnable": {
           "order": 40,
           "type": "boolean",
           "default": false,
-          "description": "%audioplugin.configuration.properties.minimax.subtitleEnable.description%"
+          "description": "%xaudio.configuration.properties.minimax.subtitleEnable.description%"
         },
-        "audioplugin.minimax.subtitleType": {
+        "xaudio.minimax.subtitleType": {
           "order": 41,
           "type": "string",
           "enum": [
@@ -403,9 +403,9 @@
             "word"
           ],
           "default": "sentence",
-          "description": "%audioplugin.configuration.properties.minimax.subtitleType.description%"
+          "description": "%xaudio.configuration.properties.minimax.subtitleType.description%"
         },
-        "audioplugin.minimax.roleVoices": {
+        "xaudio.minimax.roleVoices": {
           "order": 70,
           "type": "object",
           "default": {
@@ -420,49 +420,49 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "%audioplugin.configuration.properties.minimax.roleVoices.description%"
+          "description": "%xaudio.configuration.properties.minimax.roleVoices.description%"
         },
-        "audioplugin.cacheEnabled": {
+        "xaudio.cacheEnabled": {
           "order": 50,
           "type": "boolean",
           "default": true,
-          "description": "%audioplugin.configuration.properties.cacheEnabled.description%"
+          "description": "%xaudio.configuration.properties.cacheEnabled.description%"
         },
-        "audioplugin.cacheMaxSizeMb": {
+        "xaudio.cacheMaxSizeMb": {
           "order": 51,
           "type": "number",
           "default": 512,
           "minimum": 0,
-          "description": "%audioplugin.configuration.properties.cacheMaxSizeMb.description%"
+          "description": "%xaudio.configuration.properties.cacheMaxSizeMb.description%"
         },
-        "audioplugin.maxTextLength": {
+        "xaudio.maxTextLength": {
           "order": 52,
           "type": "number",
           "default": 10000,
           "minimum": 1,
-          "description": "%audioplugin.configuration.properties.maxTextLength.description%"
+          "description": "%xaudio.configuration.properties.maxTextLength.description%"
         },
-        "audioplugin.requestTimeoutMs": {
+        "xaudio.requestTimeoutMs": {
           "order": 53,
           "type": "number",
           "default": 60000,
           "minimum": 1000,
-          "description": "%audioplugin.configuration.properties.requestTimeoutMs.description%"
+          "description": "%xaudio.configuration.properties.requestTimeoutMs.description%"
         },
-        "audioplugin.maxConcurrentRequests": {
+        "xaudio.maxConcurrentRequests": {
           "order": 54,
           "type": "number",
           "default": 3,
           "minimum": 1,
-          "description": "%audioplugin.configuration.properties.maxConcurrentRequests.description%"
+          "description": "%xaudio.configuration.properties.maxConcurrentRequests.description%"
         },
-        "audioplugin.browserPath": {
+        "xaudio.browserPath": {
           "order": 60,
           "type": "string",
           "default": "",
-          "description": "%audioplugin.configuration.properties.browserPath.description%"
+          "description": "%xaudio.configuration.properties.browserPath.description%"
         },
-        "audioplugin.roleAnalysis.provider": {
+        "xaudio.roleAnalysis.provider": {
           "order": 71,
           "type": "string",
           "default": "openai",
@@ -471,53 +471,53 @@
             "openai"
           ],
           "enumDescriptions": [
-            "%audioplugin.configuration.properties.roleAnalysisProvider.copilot%",
-            "%audioplugin.configuration.properties.roleAnalysisProvider.openai%"
+            "%xaudio.configuration.properties.roleAnalysisProvider.copilot%",
+            "%xaudio.configuration.properties.roleAnalysisProvider.openai%"
           ],
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.roleAnalysisProvider.description%"
+          "description": "%xaudio.configuration.properties.roleAnalysisProvider.description%"
         },
-        "audioplugin.roleAnalysis.copilotModelId": {
+        "xaudio.roleAnalysis.copilotModelId": {
           "order": 72,
           "type": "string",
           "default": "",
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.roleAnalysisCopilotModelId.description%"
+          "description": "%xaudio.configuration.properties.roleAnalysisCopilotModelId.description%"
         },
-        "audioplugin.roleAnalysis.openaiEndpoint": {
+        "xaudio.roleAnalysis.openaiEndpoint": {
           "order": 73,
           "type": "string",
           "default": "https://api.deepseek.com",
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.roleAnalysisOpenaiEndpoint.description%"
+          "description": "%xaudio.configuration.properties.roleAnalysisOpenaiEndpoint.description%"
         },
-        "audioplugin.roleAnalysis.openaiModel": {
+        "xaudio.roleAnalysis.openaiModel": {
           "order": 74,
           "type": "string",
           "default": "deepseek-chat",
           "scope": "application",
-          "description": "%audioplugin.configuration.properties.roleAnalysisOpenaiModel.description%"
+          "description": "%xaudio.configuration.properties.roleAnalysisOpenaiModel.description%"
         },
-        "audioplugin.roleAnalysis.customPrompt": {
+        "xaudio.roleAnalysis.customPrompt": {
           "order": 75,
           "type": "string",
           "default": "",
-          "description": "%audioplugin.configuration.properties.roleAnalysisCustomPrompt.description%"
+          "description": "%xaudio.configuration.properties.roleAnalysisCustomPrompt.description%"
         }
       }
     },
     "languageModelTools": [
       {
-        "name": "audioplugin_speak",
+        "name": "xaudio_speak",
         "tags": [
           "tts",
           "audio",
           "read-aloud"
         ],
         "toolReferenceName": "speakText",
-        "displayName": "%audioplugin.languageModelTools.speakText.displayName%",
-        "modelDescription": "%audioplugin.languageModelTools.speakText.modelDescription%",
-        "userDescription": "%audioplugin.languageModelTools.speakText.userDescription%",
+        "displayName": "%xaudio.languageModelTools.speakText.displayName%",
+        "modelDescription": "%xaudio.languageModelTools.speakText.modelDescription%",
+        "userDescription": "%xaudio.languageModelTools.speakText.userDescription%",
         "canBeReferencedInPrompt": true,
         "icon": "$(unmute)",
         "inputSchema": {
@@ -525,15 +525,15 @@
           "properties": {
             "text": {
               "type": "string",
-              "description": "%audioplugin.languageModelTools.speakText.inputSchema.text.description%"
+              "description": "%xaudio.languageModelTools.speakText.inputSchema.text.description%"
             },
             "voice_id": {
               "type": "string",
-              "description": "%audioplugin.languageModelTools.speakText.inputSchema.voice_id.description%"
+              "description": "%xaudio.languageModelTools.speakText.inputSchema.voice_id.description%"
             },
             "model": {
               "type": "string",
-              "description": "%audioplugin.languageModelTools.speakText.inputSchema.model.description%"
+              "description": "%xaudio.languageModelTools.speakText.inputSchema.model.description%"
             }
           },
           "required": [
@@ -542,16 +542,16 @@
         }
       },
       {
-        "name": "audioplugin_scene",
+        "name": "xaudio_scene",
         "tags": [
           "tts",
           "audio",
           "scene"
         ],
         "toolReferenceName": "audioScene",
-        "displayName": "%audioplugin.languageModelTools.scene.displayName%",
-        "modelDescription": "%audioplugin.languageModelTools.scene.modelDescription%",
-        "userDescription": "%audioplugin.languageModelTools.scene.userDescription%",
+        "displayName": "%xaudio.languageModelTools.scene.displayName%",
+        "modelDescription": "%xaudio.languageModelTools.scene.modelDescription%",
+        "userDescription": "%xaudio.languageModelTools.scene.userDescription%",
         "canBeReferencedInPrompt": true,
         "icon": "$(megaphone)",
         "inputSchema": {
@@ -559,7 +559,7 @@
           "properties": {
             "prompt": {
               "type": "string",
-              "description": "%audioplugin.languageModelTools.scene.inputSchema.prompt.description%"
+              "description": "%xaudio.languageModelTools.scene.inputSchema.prompt.description%"
             }
           },
           "required": [

@@ -10,10 +10,10 @@ const TEST_TIMEOUT_MS = 120000;
 async function main(): Promise<void> {
   const extensionDevelopmentPath = path.resolve(__dirname, '../../');
   const extensionTestsPath = path.resolve(__dirname, './suite/index');
-  const testMarkerPath = path.join(os.tmpdir(), `audioplugin-extension-tests-${Date.now()}.txt`);
+  const testMarkerPath = path.join(os.tmpdir(), `xaudio-extension-tests-${Date.now()}.txt`);
   const vscodeCliPath = await resolveVsCodeCliPath();
   // 每次运行使用独立的临时 user-data-dir，避免与残留实例争用固定目录导致测试不执行
-  const testDataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'audioplugin-vscode-test-'));
+  const testDataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'xaudio-vscode-test-'));
 
   try {
     await runVsCodeCliTests(vscodeCliPath, {
@@ -21,7 +21,7 @@ async function main(): Promise<void> {
       extensionTestsPath,
       testDataRoot,
       extensionTestsEnv: {
-        AUDIOPLUGIN_TEST_MARKER: testMarkerPath
+        XAUDIO_TEST_MARKER: testMarkerPath
       }
     });
 
@@ -34,8 +34,8 @@ async function main(): Promise<void> {
       throw new Error(`VS Code extension tests failed: ${marker}`);
     }
   } finally {
-    // 调试时设置 AUDIOPLUGIN_TEST_KEEP_TMP=1 可保留临时目录与标记文件
-    if (process.env.AUDIOPLUGIN_TEST_KEEP_TMP !== '1') {
+    // 调试时设置 XAUDIO_TEST_KEEP_TMP=1 可保留临时目录与标记文件
+    if (process.env.XAUDIO_TEST_KEEP_TMP !== '1') {
       try {
         fs.rmSync(testDataRoot, { recursive: true, force: true });
       } catch {
@@ -140,7 +140,7 @@ async function runVsCodeCliTests(cliPath: string, options: CliTestOptions): Prom
     // 测试标记一写入即说明测试已结束，立即终止进程树，
     // 避免 VS Code 窗口在失败后不关闭导致测试进程一直挂起
     const markerPoll = setInterval(() => {
-      if (fs.existsSync(options.extensionTestsEnv.AUDIOPLUGIN_TEST_MARKER)) {
+      if (fs.existsSync(options.extensionTestsEnv.XAUDIO_TEST_MARKER)) {
         clearInterval(markerPoll);
         clearTimeout(timeout);
         terminateChildProcessTree(child);

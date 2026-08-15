@@ -37,7 +37,7 @@ export async function speakDocumentWithRoles(
 
   let segments: StorySegment[];
   try {
-    const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('audioplugin'));
+    const roleAnalysisConfig = getRoleAnalysisConfig(vscode.workspace.getConfiguration('xaudio'));
     const roleAnalysisClient = createRoleAnalysisClient(roleAnalysisConfig, context.secrets);
     const modelDisplay = roleAnalysisConfig.provider === 'copilot'
       ? roleAnalysisConfig.copilotModelId || t('extension.roleAnalysisProviderCopilot')

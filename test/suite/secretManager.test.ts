@@ -17,7 +17,7 @@ suite('SecretManager', () => {
 
   test('returns a stored API key', async () => {
     const secrets = new MemorySecretStorage();
-    await secrets.store('audioplugin.minimax.apiKey', ' key-value ');
+    await secrets.store('xaudio.minimax.apiKey', ' key-value ');
     const manager = new SecretManager(secrets, minimaxProvider);
 
     assert.equal(await manager.requireApiKey(), 'key-value');
@@ -25,7 +25,7 @@ suite('SecretManager', () => {
 
   test('normalizes a Bearer-prefixed API key', async () => {
     const secrets = new MemorySecretStorage();
-    await secrets.store('audioplugin.minimax.apiKey', ' Bearer key-value ');
+    await secrets.store('xaudio.minimax.apiKey', ' Bearer key-value ');
     const manager = new SecretManager(secrets, minimaxProvider);
 
     assert.equal(await manager.requireApiKey(), 'key-value');

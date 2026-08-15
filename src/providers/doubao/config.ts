@@ -44,8 +44,8 @@ export const DEFAULT_DOUBAO_CONFIG: DoubaoTtsConfig = {
 };
 
 export function getDoubaoTtsConfig(): DoubaoTtsConfig {
-  const settings = vscode.workspace.getConfiguration('audioplugin.doubao');
-  const common = vscode.workspace.getConfiguration('audioplugin');
+  const settings = vscode.workspace.getConfiguration('xaudio.doubao');
+  const common = vscode.workspace.getConfiguration('xaudio');
 
   return {
     apiHost: readGlobalApiHost(settings, DEFAULT_DOUBAO_CONFIG.apiHost),

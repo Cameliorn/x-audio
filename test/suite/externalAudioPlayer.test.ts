@@ -7,7 +7,7 @@ import { fileExists } from '../../src/fileUtils';
 
 suite('externalAudioPlayer', () => {
   test('cleans up old browser profiles but keeps the current one', async () => {
-    const root = vscode.Uri.file(path.join(os.tmpdir(), `audioplugin-profile-test-${Date.now()}-${Math.random()}`));
+    const root = vscode.Uri.file(path.join(os.tmpdir(), `xaudio-profile-test-${Date.now()}-${Math.random()}`));
     const current = vscode.Uri.joinPath(root, 'session-current');
     const old = vscode.Uri.joinPath(root, 'session-old');
     await vscode.workspace.fs.createDirectory(current);

@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run AudioPlugin Reader Extension",
+      "name": "Run x-audio Reader Extension",
       "type": "extensionHost",
       "request": "launch",
       "args": [

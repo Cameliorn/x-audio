@@ -36,7 +36,7 @@ export const TONE_TAGS = [
 export type ToneTag = typeof TONE_TAGS[number];
 
 /** 角色分析提示词模块：内置提示词默认拆分为 system（规则）与 user（动态数据）两条消息；
- * 用户设置 audioplugin.roleAnalysis.customPrompt 时整体作为单条 user 消息（保持旧语义）。
+ * 用户设置 xaudio.roleAnalysis.customPrompt 时整体作为单条 user 消息（保持旧语义）。
  * 领域常量（音色类型、情绪、音效标签）与提示词同处，自动注入避免漂移。 */
 
 const BUILTIN_SYSTEM_PROMPT = `你是一名资深有声书导演，兼具作家的文学鉴赏力和导演的表演指导能力。请通读下面的小说文本，从整体上把握叙事节奏、场景氛围和人物性格后，将其拆分为连续的朗读片段。

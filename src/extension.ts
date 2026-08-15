@@ -40,11 +40,11 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 10);
-  statusBarItem.command = 'audioplugin.playbackControls';
+  statusBarItem.command = 'xaudio.playbackControls';
   context.subscriptions.push(
     statusBarItem,
     audioPlayer.onDidChangePlaybackState(state => {
-      void vscode.commands.executeCommand('setContext', 'audioplugin.playing', state.active);
+      void vscode.commands.executeCommand('setContext', 'xaudio.playing', state.active);
       if (state.active) {
         statusBarItem.text = state.paused ? t('extension.statusPaused') : t('extension.statusPlaying');
         statusBarItem.tooltip = t('extension.playbackControlsTitle');
@@ -56,30 +56,30 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('audioplugin.speakSelection', () => speakSelection(speak, secretManager)),
-    vscode.commands.registerCommand('audioplugin.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, service, multiRoleTtsService, audioPlayer)),
-    vscode.commands.registerCommand('audioplugin.speakScenePrompt', () => {
+    vscode.commands.registerCommand('xaudio.speakSelection', () => speakSelection(speak, secretManager)),
+    vscode.commands.registerCommand('xaudio.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, service, multiRoleTtsService, audioPlayer)),
+    vscode.commands.registerCommand('xaudio.speakScenePrompt', () => {
       if (audioPlayer) {
         void speakScenePromptFromEditor(doubaoScene, audioPlayer);
       }
     }),
-    vscode.commands.registerCommand('audioplugin.setApiKey', () => promptSetApiKey(secretManager, doubaoScene)),
-    vscode.commands.registerCommand('audioplugin.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
-    vscode.commands.registerCommand('audioplugin.pause', () => {
+    vscode.commands.registerCommand('xaudio.setApiKey', () => promptSetApiKey(secretManager, doubaoScene)),
+    vscode.commands.registerCommand('xaudio.configureRoleAnalysis', () => configureRoleAnalysis(context.secrets)),
+    vscode.commands.registerCommand('xaudio.pause', () => {
       audioPlayer?.pause();
     }),
-    vscode.commands.registerCommand('audioplugin.stop', () => {
+    vscode.commands.registerCommand('xaudio.stop', () => {
       audioPlayer?.stop();
     }),
-    vscode.commands.registerCommand('audioplugin.playbackControls', () => showPlaybackControls()),
-    vscode.lm.registerTool('audioplugin_speak', new SpeakTextTool(speak)),
-    vscode.lm.registerTool('audioplugin_scene', new ScenePromptTool(doubaoScene, audioPlayer))
+    vscode.commands.registerCommand('xaudio.playbackControls', () => showPlaybackControls()),
+    vscode.lm.registerTool('xaudio_speak', new SpeakTextTool(speak)),
+    vscode.lm.registerTool('xaudio_scene', new ScenePromptTool(doubaoScene, audioPlayer))
   );
 
   promptApiKeyOnFirstRun(context, secretManager);
 }
 
-const API_KEY_PROMPT_STATE_KEY = 'audioplugin.apiKeyPromptShown';
+const API_KEY_PROMPT_STATE_KEY = 'xaudio.apiKeyPromptShown';
 
 /** 设置密钥：先选择服务（普通朗读渠道 / 豆包音频场景），再输入对应密钥 */
 async function promptSetApiKey(secretManager: SecretManager, doubaoScene: DoubaoSceneService): Promise<void> {

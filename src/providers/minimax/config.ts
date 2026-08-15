@@ -71,8 +71,8 @@ export const DEFAULT_MINI_MAX_CONFIG: MiniMaxTtsConfig = {
 };
 
 export function getMiniMaxConfig(): MiniMaxTtsConfig {
-  const settings = vscode.workspace.getConfiguration('audioplugin.minimax');
-  const common = vscode.workspace.getConfiguration('audioplugin');
+  const settings = vscode.workspace.getConfiguration('xaudio.minimax');
+  const common = vscode.workspace.getConfiguration('xaudio');
 
   return {
     apiHost: readGlobalApiHost(settings, DEFAULT_MINI_MAX_CONFIG.apiHost),

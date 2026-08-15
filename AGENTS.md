@@ -1,6 +1,6 @@
-# AudioPlugin 朗读助手 — VS Code 扩展
+# x-audio 朗读助手 — VS Code 扩展
 
-通过可插拔 TTS 渠道（默认 MiniMax）合成语音的 VS Code 扩展。提供命令和 Language Model Tool（`audioplugin_speak`）供 Copilot 集成使用。
+通过可插拔 TTS 渠道（默认 MiniMax）合成语音的 VS Code 扩展。提供命令和 Language Model Tool（`xaudio_speak`）供 Copilot 集成使用。
 
 ## 构建与测试
 
@@ -12,15 +12,15 @@
 
 ```
 extension.ts            — 入口（activate/deactivate），注册命令与 LM tool，装配当前渠道
-  ├── config.ts          — 通用 VS Code 设置（`audioplugin.*`）、默认值
+  ├── config.ts          — 通用 VS Code 设置（`xaudio.*`）、默认值
   ├── providers/
   │   ├── types.ts       — TtsProvider 渠道抽象接口
-  │   ├── registry.ts    — 渠道注册表，按 `audioplugin.provider` 选择当前渠道
+  │   ├── registry.ts    — 渠道注册表，按 `xaudio.provider` 选择当前渠道
   │   ├── minimax/       — MiniMax 渠道（默认）：config/client/apiKey/index
   │   └── doubao/        — 豆包音频生成（Seed-Audio 1.0，非流式 HTTP + URL 下载）：config/client/apiKey/index。
   │                       ⚠️ 未注册到 registry，仅由豆包音频场景命令/工具使用
   ├── doubaoScene.ts     — 豆包音频场景服务（与普通朗读完全隔离：单条 Prompt 生成综合场景）
-  ├── scenePromptTool.ts — `audioplugin_scene` vscode.LanguageModelTool 实现（供智能体调用）
+  ├── scenePromptTool.ts — `xaudio_scene` vscode.LanguageModelTool 实现（供智能体调用）
   ├── secretManager.ts   — SecretStorage 中的 API 密钥（按渠道命名空间）
   ├── ttsService.ts      — 编排合成流程 + 文件缓存（只依赖 TtsSynthesizer 接口）
   ├── roleAnalysisClient.ts — OpenAI 兼容 API 客户端（DeepSeek 等），用于角色分析
@@ -43,12 +43,12 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
 新增 TTS 渠道时：
 
 1. 在 `src/providers/<id>/` 下实现：
-   - `config.ts` — 渠道专属配置读取（`audioplugin.<id>.*`）
+   - `config.ts` — 渠道专属配置读取（`xaudio.<id>.*`）
    - `client.ts` — 实现 `TtsSynthesizer` 接口
    - `apiKey.ts`（可选）— 密钥检测逻辑
    - `index.ts` — 导出 `TtsProvider` 对象
 2. 在 `src/providers/registry.ts` 中注册
-3. 在 `package.json` 的 `audioplugin.provider` enum 中加入新渠道 ID
+3. 在 `package.json` 的 `xaudio.provider` enum 中加入新渠道 ID
 
 ## 关键约定
 
@@ -57,7 +57,7 @@ extension.ts            — 入口（activate/deactivate），注册命令与 LM
 - **VS Code 目标版本**：`^1.100.0`。使用了 `vscode.lm.registerTool`（Language Model Tool API）、`vscode.SecretStorage`、`vscode.WebviewPanel`。
 - **用户界面文本**使用简体中文。
 - **扩展实例间不共享状态** — 每次 activate 创建全新的服务实例。
-- **音频缓存**：合成的音频文件按内容哈希缓存在 `globalStorageUri/audio-cache/`。缓存由 `audioplugin.cacheEnabled` 设置控制。
+- **音频缓存**：合成的音频文件按内容哈希缓存在 `globalStorageUri/audio-cache/`。缓存由 `xaudio.cacheEnabled` 设置控制。
 
 ## 注意事项
 

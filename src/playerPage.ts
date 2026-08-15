@@ -16,7 +16,7 @@ export function getPlayerPage(pageGen: number): PlayerPage {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AudioPlugin 播放器</title>
+  <title>x-audio 播放器</title>
   <style nonce="${nonce}">
     * {
       box-sizing: border-box;

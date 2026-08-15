@@ -14,6 +14,6 @@ export function getProvider(id: string): TtsProvider | undefined {
 
 /** 返回配置指定的当前渠道；未配置或未知时回退到默认渠道（minimax） */
 export function getActiveProvider(): TtsProvider {
-  const configured = vscode.workspace.getConfiguration('audioplugin').get<string>('provider');
+  const configured = vscode.workspace.getConfiguration('xaudio').get<string>('provider');
   return getProvider(configured ?? '') ?? minimaxProvider;
 }

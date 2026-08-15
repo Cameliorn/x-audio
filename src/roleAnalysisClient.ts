@@ -171,7 +171,7 @@ class OpenAIRoleAnalysisClient implements RoleAnalysisClient {
   }
 
   private async resolveApiKey(): Promise<string> {
-    const key = await this.secrets.get('audioplugin.roleAnalysisApiKey');
+    const key = await this.secrets.get('xaudio.roleAnalysisApiKey');
     if (!key) {
       throw new UserVisibleError(t('roleAnalysis.missingApiKey'));
     }

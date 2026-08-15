@@ -7,7 +7,7 @@ import { getMiniMaxConfig } from './config';
 export const minimaxProvider: TtsProvider = {
   id: 'minimax',
   displayName: 'MiniMax',
-  apiKeySecret: 'audioplugin.minimax.apiKey',
+  apiKeySecret: 'xaudio.minimax.apiKey',
   readConfig: () => getMiniMaxConfig(),
   createClient: () => new MiniMaxClient(getMiniMaxConfig),
   inspectApiKey: inspectMiniMaxApiKey,

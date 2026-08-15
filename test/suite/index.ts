@@ -80,7 +80,7 @@ function findTestFiles(root: string): string[] {
 }
 
 function writeTestMarker(content: string): void {
-  const markerPath = process.env.AUDIOPLUGIN_TEST_MARKER;
+  const markerPath = process.env.XAUDIO_TEST_MARKER;
   if (markerPath) {
     fs.writeFileSync(markerPath, content);
   }

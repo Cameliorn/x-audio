@@ -64,7 +64,7 @@ suite('TtsService', () => {
   });
 
   test('cleans up temporary audio and stale sessions when caching is disabled', async () => {
-    const root = vscode.Uri.file(path.join(os.tmpdir(), `audioplugin-temp-test-${Date.now()}-${Math.random()}`));
+    const root = vscode.Uri.file(path.join(os.tmpdir(), `xaudio-temp-test-${Date.now()}-${Math.random()}`));
     const tempRoot = vscode.Uri.joinPath(root, 'audio-tmp');
     const staleDir = vscode.Uri.joinPath(tempRoot, 'session-stale');
     await vscode.workspace.fs.createDirectory(staleDir);
@@ -311,7 +311,7 @@ interface CreateServiceOptions {
 
 function createService(options: CreateServiceOptions = {}): TtsService {
   return new TtsService(
-    vscode.Uri.file(path.join(os.tmpdir(), `audioplugin-test-${Date.now()}-${Math.random()}`)),
+    vscode.Uri.file(path.join(os.tmpdir(), `xaudio-test-${Date.now()}-${Math.random()}`)),
     new StaticApiKeyProvider(),
     options.client ?? {
       outputFormat: 'mp3',

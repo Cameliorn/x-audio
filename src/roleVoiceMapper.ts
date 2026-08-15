@@ -1,7 +1,7 @@
 import { StorySegment } from './roleAnalyzer';
 import { NARRATOR_NAME, RoleVoiceType } from './roleAnalyzerPrompts';
 
-export const CHARACTER_VOICE_STATE_KEY = 'audioplugin.characterVoices';
+export const CHARACTER_VOICE_STATE_KEY = 'xaudio.characterVoices';
 
 export interface RoleAssignment {
   readonly speaker: string;
