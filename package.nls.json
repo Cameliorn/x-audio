@@ -1,7 +1,8 @@
 {
-    "xaudio.description": "x-audio Reader: read selected text or agent-provided text aloud in VS Code. MiniMax is the default TTS provider.",
+    "xaudio.description": "x-audio Reader: read selected text aloud, narrate novels with per-character voices, generate Doubao audio scenes, and serve as a read-aloud tool for Copilot agents. MiniMax is the default TTS provider.",
     "xaudio.commands.category": "x-audio Reader",
     "xaudio.commands.speakSelection.title": "Read Selected Text",
+    "xaudio.commands.speakText.title": "Read Text (API)",
     "xaudio.commands.speakDocumentWithRoles.title": "Read Selected Text with Character Voices",
     "xaudio.commands.speakScenePrompt.title": "Generate Doubao Audio Scene from Selection",
     "xaudio.commands.setApiKey.title": "Set API Key",

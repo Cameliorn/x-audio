@@ -12,7 +12,17 @@ import { CHARACTER_VOICE_STATE_KEY, assignVoices } from '../roles/roleVoiceMappe
 import { MultiRoleTtsService, RoleSpeechSegment } from '../services/multiRoleTtsService';
 import { SecretManager } from '../services/secretManager';
 import { TtsService } from '../services/ttsService';
-import { findDirectoryVoiceConfig } from '../services/voiceConfigFile';
+import { DirectoryVoiceConfig, findDirectoryVoiceConfig } from '../services/voiceConfigFile';
+
+/** 分角色朗读的文本来源：可指定文本、音色配置与配置查找目录，缺省时回退到活动编辑器。 */
+export interface RoleSpeechSource {
+  /** 直接提供文本时跳过编辑器读取 */
+  readonly text?: string;
+  /** 用于查找目录音色配置的文档 URI（默认取活动编辑器） */
+  readonly documentUri?: vscode.Uri;
+  /** 调用方直接提供的音色配置（如 x-reader 从书的角色卡解析）；提供时优先于目录 `.ttsvoices.json` 查找 */
+  readonly voiceConfig?: DirectoryVoiceConfig;
+}
 
 /** 分角色朗读流程：角色分析 → 音色确认 → 多段合成 → 播放 */
 export async function speakDocumentWithRoles(
@@ -20,16 +30,12 @@ export async function speakDocumentWithRoles(
   secretManager: SecretManager,
   ttsService: TtsService,
   multiRoleTtsService: MultiRoleTtsService,
-  audioPlayer: AudioPlayerPanel | undefined
+  audioPlayer: AudioPlayerPanel | undefined,
+  source?: RoleSpeechSource
 ): Promise<void> {
   const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    vscode.window.showWarningMessage(t('extension.noEditorForRoles'));
-    return;
-  }
-
-  const selectedText = getSelectedText(editor);
-  const text = selectedText.length > 0 ? selectedText : editor.document.getText().trim();
+  const selectedText = editor ? getSelectedText(editor) : '';
+  const text = source?.text?.trim() ?? (selectedText.length > 0 ? selectedText : editor?.document.getText().trim() ?? '');
   if (text.length === 0) {
     vscode.window.showWarningMessage(t('extension.noText'));
     return;
@@ -62,7 +68,8 @@ export async function speakDocumentWithRoles(
 
   const providerConfig = getActiveProvider().readConfig();
   const wsOverrides = context.workspaceState.get<Record<string, string>>(CHARACTER_VOICE_STATE_KEY, {});
-  const dirConfig = await findDirectoryVoiceConfig(editor.document.uri);
+  const configUri = source?.documentUri ?? editor?.document.uri;
+  const dirConfig = source?.voiceConfig ?? (configUri ? await findDirectoryVoiceConfig(configUri) : undefined);
   const dirCharOverrides = dirConfig?.characterVoices ?? {};
   const dirRoleOverrides = dirConfig?.roleTypeVoices ?? {};
   const overrides = { ...wsOverrides, ...dirCharOverrides };

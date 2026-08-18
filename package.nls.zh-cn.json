@@ -1,7 +1,8 @@
 {
-    "xaudio.description": "x-audio 朗读助手：在 VS Code 中朗读选中文本或 Agent 提供的文本。默认使用 MiniMax 渠道合成语音。",
+    "xaudio.description": "x-audio 朗读助手：在 VS Code 中朗读选中文本、分角色朗读小说、用豆包生成音频场景，也可作为 Copilot Agent 的朗读工具。默认使用 MiniMax 渠道合成语音。",
     "xaudio.commands.category": "x-audio 朗读助手",
     "xaudio.commands.speakSelection.title": "朗读选中文本",
+    "xaudio.commands.speakText.title": "朗读文本（接口）",
     "xaudio.commands.speakDocumentWithRoles.title": "分角色朗读选中文本",
     "xaudio.commands.speakScenePrompt.title": "用豆包生成音频场景",
     "xaudio.commands.setApiKey.title": "设置密钥",

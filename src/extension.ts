@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { configureRoleAnalysis } from './commands/roleAnalysisConfigFlow';
-import { speakDocumentWithRoles } from './commands/roleSpeechFlow';
+import { RoleSpeechSource, speakDocumentWithRoles } from './commands/roleSpeechFlow';
+import { getTtsConfig } from './common/config';
 import { handleUserFacingError } from './common/errors';
 import { t } from './common/i18n';
 import { getSelectedText } from './common/utils';
@@ -10,7 +11,8 @@ import { getActiveProvider } from './providers/registry';
 import { DoubaoSceneService, speakScenePromptFromEditor } from './services/doubaoScene';
 import { MultiRoleTtsService } from './services/multiRoleTtsService';
 import { SecretManager } from './services/secretManager';
-import { TtsService } from './services/ttsService';
+import { SpeakRequest, TtsAudioFile, TtsService } from './services/ttsService';
+import { DirectoryVoiceConfig } from './services/voiceConfigFile';
 import { ScenePromptTool } from './tools/scenePromptTool';
 import { SpeakExecutor, SpeakTextTool } from './tools/speakTextTool';
 
@@ -57,6 +59,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('xaudio.speakSelection', () => speakSelection(speak, secretManager)),
+    vscode.commands.registerCommand('xaudio.speakText', (args?: SpeakTextArgs) =>
+      speakTextCommand(context, speak, secretManager, service, multiRoleTtsService, audioPlayer, args)
+    ),
     vscode.commands.registerCommand('xaudio.speakDocumentWithRoles', () => speakDocumentWithRoles(context, secretManager, service, multiRoleTtsService, audioPlayer)),
     vscode.commands.registerCommand('xaudio.speakScenePrompt', () => {
       if (audioPlayer) {
@@ -170,6 +175,133 @@ async function speakSelection(speak: SpeakExecutor, secretManager: SecretManager
     secretManager,
     text: selectedText
   });
+}
+
+/** xaudio.speakText 命令参数：供其他扩展（如 x-reader）程序化调用。 */
+export interface SpeakTextArgs {
+  /** 要朗读的文本；省略时回退到活动编辑器选中内容 */
+  readonly text?: string;
+  /** plain：普通朗读（默认）；roles：分角色朗读 */
+  readonly mode?: 'plain' | 'roles';
+  /** 用于查找目录音色配置的文档 URI（仅 roles 模式使用） */
+  readonly documentUri?: vscode.Uri;
+  /** 调用方提供的音色配置（如从书的角色卡解析）；提供时优先于目录 `.ttsvoices.json` 查找（仅 roles 模式使用） */
+  readonly voiceConfig?: DirectoryVoiceConfig;
+}
+
+/** 程序化朗读入口：xaudio.speakText。长文本自动分块后顺序播放。 */
+async function speakTextCommand(
+  context: vscode.ExtensionContext,
+  speak: SpeakExecutor,
+  secretManager: SecretManager,
+  service: TtsService,
+  multiRoleTtsService: MultiRoleTtsService,
+  audioPlayer: AudioPlayerPanel | undefined,
+  args?: SpeakTextArgs
+): Promise<void> {
+  let text = typeof args?.text === 'string' ? args.text.trim() : '';
+  let documentUri = args?.documentUri;
+
+  if (text.length === 0) {
+    const editor = vscode.window.activeTextEditor;
+    const selectedText = editor ? getSelectedText(editor) : '';
+    text = selectedText.length > 0 ? selectedText : (editor?.document.getText().trim() ?? '');
+    documentUri = documentUri ?? editor?.document.uri;
+  }
+  if (text.length === 0) {
+    vscode.window.showWarningMessage(t('extension.noText'));
+    return;
+  }
+
+  if (args?.mode === 'roles') {
+    const source: RoleSpeechSource = {
+      text,
+      ...(documentUri ? { documentUri } : {}),
+      ...(args?.voiceConfig ? { voiceConfig: args.voiceConfig } : {})
+    };
+    await speakDocumentWithRoles(context, secretManager, service, multiRoleTtsService, audioPlayer, source);
+    return;
+  }
+
+  const config = getTtsConfig();
+  if (text.length <= config.maxTextLength) {
+    await runSpeakWithProgress({ title: t('extension.speakProgress'), speak, secretManager, text });
+    return;
+  }
+
+  // 长文本：按段落分块合成后顺序播放
+  const chunks = splitTextForTts(text, config.maxTextLength);
+  try {
+    const files: TtsAudioFile[] = [];
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: t('extension.speakProgress'),
+      cancellable: true
+    }, async (progress, token) => {
+      for (let i = 0; i < chunks.length; i++) {
+        progress.report({ message: `${i + 1}/${chunks.length}`, increment: 100 / chunks.length });
+        files.push(await speak({ text: chunks[i] }, token));
+      }
+    });
+    await audioPlayer?.playQueue(files);
+    const totalCharacters = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    vscode.window.setStatusBarMessage(t('extension.speakComplete', totalCharacters, t('extension.cacheMiss')), 3000);
+  } catch (error) {
+    if (error instanceof vscode.CancellationError) {
+      return;
+    }
+    await handleError(error, secretManager);
+  }
+}
+
+/** 将长文本按段落拆分为不超过 maxLength 的块；单个超长段落按行内标点就近切断。 */
+function splitTextForTts(text: string, maxLength: number): string[] {
+  const chunks: string[] = [];
+  let current = '';
+
+  const push = (part: string): void => {
+    const trimmed = part.trim();
+    if (trimmed.length > 0) {
+      chunks.push(trimmed);
+    }
+  };
+
+  const splitOversized = (part: string): void => {
+    let rest = part;
+    while (rest.length > maxLength) {
+      let cut = maxLength;
+      for (let i = maxLength - 1; i >= 0; i--) {
+        if ('。！？；…'.includes(rest[i])) {
+          cut = i + 1;
+          break;
+        }
+      }
+      push(rest.slice(0, cut));
+      rest = rest.slice(cut);
+    }
+    current = rest;
+  };
+
+  for (const paragraph of text.split(/\r?\n\s*\r?\n/)) {
+    const trimmed = paragraph.trim();
+    if (trimmed.length === 0) {
+      continue;
+    }
+    if (trimmed.length > maxLength) {
+      push(current);
+      current = '';
+      splitOversized(trimmed);
+    } else if (current.length === 0) {
+      current = trimmed;
+    } else if (current.length + 1 + trimmed.length <= maxLength) {
+      current = `${current}\n${trimmed}`;
+    } else {
+      push(current);
+      current = trimmed;
+    }
+  }
+  push(current);
+  return chunks;
 }
 
 interface SpeakWithProgressOptions {

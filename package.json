@@ -1,9 +1,9 @@
 {
   "name": "x-audio",
-  "displayName": "x-audio 朗读助手",
+  "displayName": "X Audio",
   "description": "%xaudio.description%",
-  "version": "1.0.4",
-  "publisher": "Cameliorn",
+  "version": "1.1.0",
+  "publisher": "cameliorn",
   "icon": "resources/icon.png",
   "license": "MIT",
   "author": "Cameliorn",
@@ -52,6 +52,12 @@
         "icon": "$(unmute)"
       },
       {
+        "command": "xaudio.speakText",
+        "title": "%xaudio.commands.speakText.title%",
+        "category": "%xaudio.commands.category%",
+        "icon": "$(unmute)"
+      },
+      {
         "command": "xaudio.speakDocumentWithRoles",
         "title": "%xaudio.commands.speakDocumentWithRoles.title%",
         "category": "%xaudio.commands.category%",
@@ -92,6 +98,10 @@
       "commandPalette": [
         {
           "command": "xaudio.speakSelection",
+          "when": "false"
+        },
+        {
+          "command": "xaudio.speakText",
           "when": "false"
         },
         {
